@@ -3,10 +3,7 @@
 
 # Project planning docs (local only)
 CLAUDE.md
-spec.md
-architecture.md
-changelog.md
-project_status.md
+docs/
 
 # Expo
 node_modules/
