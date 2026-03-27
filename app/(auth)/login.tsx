@@ -1,17 +1,20 @@
 import { useState } from 'react'
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native'
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { Link } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+import { friendlyAuthError } from '@/lib/authErrors'
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function signIn() {
+    setError(null)
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) Alert.alert('Error', error.message)
+    if (error) setError(friendlyAuthError(error.message))
     setLoading(false)
   }
 
@@ -36,6 +39,8 @@ export default function LoginScreen() {
         secureTextEntry
       />
 
+      {error && <Text style={styles.error}>{error}</Text>}
+
       <Pressable style={styles.button} onPress={signIn} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Signing in...' : 'Sign in'}</Text>
       </Pressable>
@@ -55,4 +60,5 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#0066FF', borderRadius: 8, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   link: { marginTop: 16, textAlign: 'center', color: '#0066FF' },
+  error: { color: '#CC0000', marginBottom: 12, fontSize: 14 },
 })
