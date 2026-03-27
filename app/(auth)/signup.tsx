@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { Link, useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+import { friendlyAuthError } from '@/lib/authErrors'
 
 function isEduEmail(email: string) {
   return email.trim().toLowerCase().endsWith('.edu')
@@ -37,7 +38,7 @@ export default function SignupScreen() {
     })
 
     if (error) {
-      setError(error.message)
+      setError(friendlyAuthError(error.message))
     } else {
       router.replace('/(auth)/verify-email')
     }

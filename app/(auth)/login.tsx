@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { Link } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+import { friendlyAuthError } from '@/lib/authErrors'
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('')
@@ -13,7 +14,7 @@ export default function LoginScreen() {
     setError(null)
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
+    if (error) setError(friendlyAuthError(error.message))
     setLoading(false)
   }
 

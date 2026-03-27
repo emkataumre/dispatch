@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, Image } from 'react-native'
+import { View, Text, TextInput, Pressable, StyleSheet, Image } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
@@ -8,17 +8,20 @@ export default function ProfileModal() {
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError) { console.error('Failed to get user:', authError.message); return }
       if (!user) return
-      const { data } = await supabase
+      const { data, error: profileError } = await supabase
         .from('profiles')
         .select('display_name, avatar_url')
         .eq('id', user.id)
         .single()
+      if (profileError) { console.error('Failed to load profile:', profileError.message); return }
       if (data) {
         setDisplayName(data.display_name)
         setAvatarUrl(data.avatar_url)
@@ -42,7 +45,7 @@ export default function ProfileModal() {
   async function uploadAvatar(uri: string) {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setLoading(false); return }
 
     const ext = uri.split('.').pop()
     const path = `${user.id}/avatar.${ext}`
@@ -51,7 +54,8 @@ export default function ProfileModal() {
 
     const { error } = await supabase.storage.from('avatars').upload(path, blob, { upsert: true })
     if (error) {
-      Alert.alert('Error', 'Failed to upload avatar.')
+      console.error('Failed to upload avatar:', error.message)
+      setError('Failed to upload avatar.')
     } else {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       setAvatarUrl(data.publicUrl)
@@ -60,13 +64,14 @@ export default function ProfileModal() {
   }
 
   async function saveProfile() {
+    setError(null)
     if (!displayName.trim()) {
-      Alert.alert('Missing name', 'Display name cannot be empty.')
+      setError('Display name cannot be empty.')
       return
     }
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setLoading(false); return }
 
     const { error } = await supabase
       .from('profiles')
@@ -74,7 +79,7 @@ export default function ProfileModal() {
       .eq('id', user.id)
 
     if (error) {
-      Alert.alert('Error', error.message)
+      setError(error.message)
     } else {
       router.back()
     }
@@ -101,6 +106,8 @@ export default function ProfileModal() {
         autoCapitalize="words"
       />
 
+      {error && <Text style={styles.error}>{error}</Text>}
+
       <Pressable style={styles.button} onPress={saveProfile} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save'}</Text>
       </Pressable>
@@ -120,4 +127,5 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 16 },
   button: { backgroundColor: '#0066FF', borderRadius: 8, padding: 16, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  error: { color: '#CC0000', marginBottom: 12, fontSize: 14 },
 })
