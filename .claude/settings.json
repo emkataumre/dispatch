@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git status --porcelain 2>/dev/null | grep -q . && find . -name '*.test.*' -not -path '*/node_modules/*' | grep -q . && npx jest || true"
+          }
+        ]
+      }
+    ]
+  }
+}

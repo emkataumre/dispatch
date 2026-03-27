@@ -1,0 +1,30 @@
+# Project planning docs (local only)
+CLAUDE.md
+spec.md
+architecture.md
+changelog.md
+project_status.md
+
+# Expo
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
