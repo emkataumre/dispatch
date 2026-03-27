@@ -44,7 +44,8 @@ export default function ProfileModal() {
 
   async function uploadAvatar(uri: string) {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError) { console.error('Failed to get user:', authError.message); setLoading(false); return }
     if (!user) { setLoading(false); return }
 
     const ext = uri.split('.').pop()
@@ -70,7 +71,8 @@ export default function ProfileModal() {
       return
     }
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError) { console.error('Failed to get user:', authError.message); setLoading(false); return }
     if (!user) { setLoading(false); return }
 
     const { error } = await supabase
