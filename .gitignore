@@ -1,3 +1,6 @@
+# Claude local config
+.claude/
+
 # Project planning docs (local only)
 CLAUDE.md
 spec.md
