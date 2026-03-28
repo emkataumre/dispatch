@@ -1,6 +1,11 @@
 import { useEffect } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
+import Mapbox from '@rnmapbox/maps'
 import { useAuth } from '@/hooks/useAuth'
+
+const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
+if (!mapboxToken) throw new Error('EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN is not set')
+Mapbox.setAccessToken(mapboxToken)
 
 export default function RootLayout() {
   const { session, loading } = useAuth()
@@ -13,7 +18,7 @@ export default function RootLayout() {
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login')
     } else if (session && inAuthGroup) {
-      router.replace('/(app)/(tabs)/')
+      router.replace('/(app)/(tabs)')
     }
   }, [session, loading, segments])
 

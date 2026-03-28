@@ -18,23 +18,22 @@
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Dispatch uses your location to detect when you arrive at spots around Copenhagen and log your check-ins.",
         "NSLocationWhenInUseUsageDescription": "Dispatch uses your location to show where you are on the map.",
-        "NSPhotoLibraryUsageDescription": "Dispatch uses your photo library to let you set a profile picture."
+        "NSPhotoLibraryUsageDescription": "Dispatch uses your photo library to let you set a profile picture.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.dispatch.app",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION"
       ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -44,10 +43,18 @@
           "locationAlwaysAndWhenInUsePermission": "Dispatch uses your location to detect when you arrive at spots around Copenhagen and log your check-ins."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@rnmapbox/maps",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1a526a8b-5444-4add-8c0b-849d03ada251"
+      }
     }
   }
 }
