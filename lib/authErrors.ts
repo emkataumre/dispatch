@@ -1,3 +1,9 @@
+export function isEduEmail(email: string): boolean {
+  const trimmed = email.trim().toLowerCase()
+  const atIndex = trimmed.indexOf('@')
+  return atIndex > 0 && trimmed.endsWith('.edu')
+}
+
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'Invalid login credentials': 'Incorrect email or password.',
   'Email not confirmed': 'Please confirm your email before signing in.',

@@ -1,26 +1,22 @@
-import { useState } from 'react'
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
-import { Link, useRouter } from 'expo-router'
-import { supabase } from '@/lib/supabase'
-import { friendlyAuthError } from '@/lib/authErrors'
-
-function isEduEmail(email: string) {
-  return email.trim().toLowerCase().endsWith('.edu')
-}
+import { useState } from "react";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { Link, useRouter } from "expo-router";
+import { supabase } from "@/lib/supabase";
+import { friendlyAuthError, isEduEmail } from "@/lib/authErrors";
 
 export default function SignupScreen() {
-  const [displayName, setDisplayName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   async function signUp() {
-    setError(null)
+    setError(null);
     if (!displayName.trim()) {
-      setError('Please enter a display name.')
-      return
+      setError("Please enter a display name.");
+      return;
     }
     // TODO: re-enable before launch
     // if (!isEduEmail(email)) {
@@ -28,27 +24,29 @@ export default function SignupScreen() {
     //   return
     // }
 
-    setLoading(true)
+    setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { display_name: displayName.trim() },
       },
-    })
+    });
 
     if (error) {
-      setError(friendlyAuthError(error.message))
+      setError(friendlyAuthError(error.message));
     } else {
-      router.replace('/(auth)/verify-email')
+      router.replace("/(auth)/verify-email");
     }
-    setLoading(false)
+    setLoading(false);
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Join Dispatch</Text>
-      <Text style={styles.subtitle}>Use your university .edu email to sign up.</Text>
+      <Text style={styles.subtitle}>
+        Use your university .edu email to sign up.
+      </Text>
 
       <TextInput
         style={styles.input}
@@ -76,23 +74,43 @@ export default function SignupScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={signUp} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Create account'}</Text>
+        <Text style={styles.buttonText}>
+          {loading ? "Creating account..." : "Create account"}
+        </Text>
       </Pressable>
 
       <Link href="/(auth)/login" style={styles.link}>
         Already have an account? Sign in
       </Link>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 32, fontWeight: '700', marginBottom: 4 },
-  subtitle: { fontSize: 16, color: '#666', marginBottom: 32 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 16 },
-  button: { backgroundColor: '#0066FF', borderRadius: 8, padding: 16, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  link: { marginTop: 16, textAlign: 'center', color: '#0066FF' },
-  error: { color: '#CC0000', marginBottom: 12, fontSize: 14 },
-})
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  title: { fontSize: 32, fontWeight: "700", marginBottom: 4 },
+  subtitle: { fontSize: 16, color: "#666", marginBottom: 32 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 12,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#0066FF",
+    borderRadius: 8,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  link: { marginTop: 16, textAlign: "center", color: "#0066FF" },
+  error: { color: "#CC0000", marginBottom: 12, fontSize: 14 },
+});
