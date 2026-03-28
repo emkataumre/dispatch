@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      poi_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          poi_id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          poi_id: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          poi_id?: string
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poi_ratings_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "pois"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poi_ratings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pois: {
+        Row: {
+          category: Database["public"]["Enums"]["poi_category"]
+          created_at: string | null
+          created_by: string | null
+          description: string
+          id: string
+          lat: number
+          lng: number
+          name: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["poi_category"]
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          id: string
+          lat: number
+          lng: number
+          name: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["poi_category"]
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pois_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -78,7 +161,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      poi_category:
+        | "food_drink"
+        | "nightlife"
+        | "culture"
+        | "study_spots"
+        | "hidden_gems"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -205,6 +293,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      poi_category: [
+        "food_drink",
+        "nightlife",
+        "culture",
+        "study_spots",
+        "hidden_gems",
+      ],
+    },
   },
 } as const
