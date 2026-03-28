@@ -7,20 +7,28 @@ type Poi = Tables<'pois'>
 export function usePois() {
   const [pois, setPois] = useState<Poi[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let active = true
+
     supabase
       .from('pois')
       .select('*')
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Failed to fetch POIs:', error.message)
+      .then(({ data, error: fetchError }) => {
+        if (!active) return
+        if (fetchError) {
+          setError(fetchError.message)
         } else {
           setPois(data ?? [])
         }
         setLoading(false)
       })
+
+    return () => {
+      active = false
+    }
   }, [])
 
-  return { pois, loading }
+  return { pois, loading, error }
 }

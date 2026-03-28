@@ -11,12 +11,12 @@ interface Props {
 }
 
 // Mapbox 'match' expression: ['match', input, v1, out1, v2, out2, ..., fallback]
-const circleColorExpression = [
+const circleColorExpression: Mapbox.CircleLayerStyle['circleColor'] = [
   'match',
   ['get', 'category'],
   ...POI_CATEGORIES.flatMap((cat) => [cat, CATEGORY_COLORS[cat]]),
   '#999999', // fallback
-] as const
+]
 
 const circleStyle = {
   circleColor: circleColorExpression,
@@ -47,7 +47,6 @@ export function PoiLayer({ pois, onPoiPress }: Props) {
         coordinates: [poi.lng, poi.lat],
       },
       properties: {
-        id: poi.id,
         name: poi.name,
         category: poi.category,
       },
@@ -59,10 +58,10 @@ export function PoiLayer({ pois, onPoiPress }: Props) {
     [pois],
   )
 
-  const handlePress = useCallback((event: { features: { properties?: { id?: string } | null }[] }) => {
+  const handlePress = useCallback((event: { features: { id?: string | number; properties?: Record<string, unknown> | null }[] }) => {
     const feature = event.features[0]
     if (!feature) return
-    const poi = poiById.get(feature.properties?.id ?? '')
+    const poi = poiById.get(String(feature.id ?? ''))
     if (poi) onPoiPress(poi)
   }, [poiById, onPoiPress])
 
