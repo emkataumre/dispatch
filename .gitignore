@@ -32,6 +32,9 @@ Thumbs.db
 # IDE
 .idea/
 
+# scripts
+scripts/
+
 # Local config
 .mcp.json
 

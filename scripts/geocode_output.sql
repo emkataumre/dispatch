@@ -52,3 +52,186 @@ UPDATE public.pois SET lat = 55.6866466, lng = 12.5573308 WHERE id = 'ab9fb68c-0
 UPDATE public.pois SET lat = 55.6955245, lng = 12.6093316 WHERE id = 'ef3b8e33-5926-584e-aa2e-c18e5e1a3730'; -- Halvandet
 UPDATE public.pois SET lat = 55.6791439, lng = 12.5689981 WHERE id = '7b16e8c0-f567-5dba-8f2b-df34200064c7'; -- Sankt Peders Stræde
 UPDATE public.pois SET lat = 55.6824324, lng = 12.5963819 WHERE id = '3f8db6f2-fdbe-5662-873c-0382cf50baae'; -- Ofelia Beach
+
+
+PS M:\Personal Projects\Dispatch> python scripts/geocode_pois.py
+Reading seed data from: M:\Personal Projects\Dispatch\supabase\migrations\004_poi_seed_data.sql
+Found 68 POIs to geocode.
+
+[1/68] Geocoding: Torvehallerne
+         -> lat=55.6837848, lng=12.568928
+[2/68] Geocoding: Reffen Street Food
+         -> lat=55.6936333, lng=12.6082318
+[3/68] Geocoding: Grød
+         -> LIST (needs manual review)
+[4/68] Geocoding: Paludan Bog & Café
+         -> lat=55.6798752, lng=12.5733676
+[5/68] Geocoding: Juno the Bakery
+         -> lat=55.7061815, lng=12.5818152
+[6/68] Geocoding: Hart Bageri
+         -> LIST (needs manual review)
+[7/68] Geocoding: Warpigs
+         -> lat=55.6685024, lng=12.5599359
+[8/68] Geocoding: Hija de Sanchez
+         -> LIST (needs manual review)
+[9/68] Geocoding: Gasoline Grill
+         -> LIST (needs manual review)
+[10/68] Geocoding: Broens Gadekøkken
+         -> lat=55.6778772, lng=12.5968088
+[11/68] Geocoding: Bæst
+         -> lat=55.6923117, lng=12.5560779
+[12/68] Geocoding: Café Dyrehaven
+         -> lat=55.6656681, lng=12.5496042
+[13/68] Geocoding: Mikkeller Bar
+         -> LIST (needs manual review)
+[14/68] Geocoding: Atelier September
+         -> LIST (needs manual review)
+[15/68] Geocoding: Ramen to Bíiru
+         -> LIST (needs manual review)
+[16/68] Geocoding: Wulff & Konstali
+         -> LIST (needs manual review)
+[17/68] Geocoding: Høst
+         -> lat=55.6833518, lng=12.5661528
+[18/68] Geocoding: Joe & the Juice Strøget
+         -> LIST (needs manual review)
+[19/68] Geocoding: Rust
+         -> lat=55.691235, lng=12.5592894
+[20/68] Geocoding: VEGA
+         -> lat=55.6681108, lng=12.5438031
+[21/68] Geocoding: Culture Box
+         -> lat=55.6863855, lng=12.5839928
+[22/68] Geocoding: BRUS
+         -> lat=55.6921531, lng=12.5561452
+[23/68] Geocoding: Lidkoeb
+         -> lat=55.6728044, lng=12.5516122
+[24/68] Geocoding: The Jane
+         -> lat=55.6800628, lng=12.5758287
+[25/68] Geocoding: Nørrebro Bryghus
+         -> lat=55.6901306, lng=12.5637778
+[26/68] Geocoding: Bakken
+         -> lat=55.7746853, lng=12.5772659
+[27/68] Geocoding: Ved Stranden 10
+         -> lat=55.6773697, lng=12.5816522
+[28/68] Geocoding: Jolene Bar
+         -> lat=55.6673056, lng=12.5612166
+[29/68] Geocoding: Gefährlich
+         -> lat=55.6889055, lng=12.5597384
+[30/68] Geocoding: KB18
+         -> lat=55.6659836, lng=12.5588521
+[31/68] Geocoding: SMK – National Gallery of Denmark
+         -> lat=55.6888127, lng=12.5783303
+[32/68] Geocoding: Ny Carlsberg Glyptotek
+         -> lat=55.67298, lng=12.572543
+[33/68] Geocoding: Rosenborg Castle
+         -> lat=55.6858274, lng=12.5772687
+[34/68] Geocoding: The Round Tower
+         -> lat=55.681347, lng=12.5757299
+[35/68] Geocoding: Nyhavn
+         -> lat=55.6797676, lng=12.5907984
+[36/68] Geocoding: Christiansborg Palace
+         -> LIST (needs manual review)
+[37/68] Geocoding: Freetown Christiania
+         -> lat=55.677963, lng=12.6051861
+[38/68] Geocoding: Copenhagen Opera House
+         -> lat=55.6821758, lng=12.6000932
+[39/68] Geocoding: Designmuseum Danmark
+         -> lat=55.6865563, lng=12.5928423
+[40/68] Geocoding: Natural History Museum of Denmark
+         -> lat=55.6874652, lng=12.5767806
+[41/68] Geocoding: Assistens Cemetery
+         -> lat=55.6910102, lng=12.5501532
+[42/68] Geocoding: Botanical Garden Copenhagen
+         -> lat=55.6849043, lng=12.5733926
+[43/68] Geocoding: Amalienborg Palace
+         -> lat=55.6840588, lng=12.5930201
+[44/68] Geocoding: The Black Diamond
+         -> lat=55.6733994, lng=12.5826588
+[45/68] Geocoding: Church of Our Saviour
+         -> lat=55.6729387, lng=12.5942102
+[46/68] Geocoding: Cisternerne
+         -> lat=55.6695374, lng=12.5242031
+[47/68] Geocoding: Copenhagen Central Library
+         -> lat=55.6809067, lng=12.5736671
+[48/68] Geocoding: Studenterhuset
+         -> lat=55.6811862, lng=12.5762561
+[49/68] Geocoding: Absalon
+         -> LIST (needs manual review)
+[50/68] Geocoding: Riccos Kaffebar Istedgade
+         -> lat=55.6675548, lng=12.5482188
+[51/68] Geocoding: Prolog Coffee Bar
+         -> LIST (needs manual review)
+[52/68] Geocoding: The Corner Frederiksberg
+         -> LIST (needs manual review)
+[53/68] Geocoding: BLOX Café
+         -> lat=55.6724602, lng=12.5791827
+[54/68] Geocoding: Café Norden
+         -> lat=55.6789112, lng=12.5799328
+[55/68] Geocoding: Ørstedsparken
+         -> lat=55.6810135, lng=12.5669485
+[56/68] Geocoding: Frederiksberg Have
+         -> lat=55.6748106, lng=12.5254766
+[57/68] Geocoding: Jorcks Passage
+         -> lat=55.6788341, lng=12.5742518
+[58/68] Geocoding: Espresso House Nørreport
+         -> LIST (needs manual review)
+[59/68] Geocoding: Superkilen
+         -> lat=55.7013424, lng=12.5426383
+[60/68] Geocoding: Kastellet
+         -> lat=55.691376, lng=12.594301
+[61/68] Geocoding: Amager Strandpark
+         -> lat=55.6545325, lng=12.6496067
+[62/68] Geocoding: Blågårds Plads
+         -> lat=55.6866466, lng=12.5573308
+[63/68] Geocoding: Halvandet
+         -> lat=55.6955245, lng=12.6093316
+[64/68] Geocoding: Sankt Peders Stræde
+         -> lat=55.6791439, lng=12.5689981
+[65/68] Geocoding: Ofelia Beach
+         -> lat=55.6824324, lng=12.5963819
+[66/68] Geocoding: Nørrebro Park
+         -> LIST (needs manual review)
+[67/68] Geocoding: Utterslev Mose
+         -> LIST (needs manual review)
+[68/68] Geocoding: Dyrehaven
+         -> LIST (needs manual review)
+
+============================================================
+Done. 51 succeeded, 17 need manual review, 0 failed.
+Output written to: M:\Personal Projects\Dispatch\scripts\geocode_output.sql
+
+Needs manual review (list results — multiple locations found):
+  - Grød
+    https://www.google.com/maps/search/Gr%C3%B8d+Copenhagen/@55.7202644,12.5488452,12z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Hart Bageri
+    https://www.google.com/maps/search/Hart+Bageri+Copenhagen/@55.6838206,12.5729352,14z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Hija de Sanchez
+    https://www.google.com/maps/search/Hija+de+Sanchez+Copenhagen/@55.6868615,12.565651,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Gasoline Grill
+    https://www.google.com/maps/search/Gasoline+Grill+Copenhagen/@55.6656593,12.5908779,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Mikkeller Bar
+    https://www.google.com/maps/search/Mikkeller+Bar+Copenhagen/@55.661749,12.593816,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Atelier September
+    https://www.google.com/maps/search/Atelier+September+Copenhagen/@55.7139622,12.5856825,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Ramen to Bíiru
+    https://www.google.com/maps/search/Ramen+to+B%C3%ADiru+Copenhagen/@55.6651157,12.5865501,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Wulff & Konstali
+    https://www.google.com/maps/search/Wulff+%26+Konstali+Copenhagen/@55.6949526,12.5805988,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Joe & the Juice Strøget
+    https://www.google.com/maps/search/Joe+%26+the+Juice+Str%C3%B8get+Copenhagen/@55.6723664,12.5848041,14z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Christiansborg Palace
+    https://www.google.com/maps/search/Christiansborg+Palace+Copenhagen/@55.6766976,12.5798662,17z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Absalon
+    https://www.google.com/maps/search/Absalon+Copenhagen/@55.6685206,12.5559718,16z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Prolog Coffee Bar
+    https://www.google.com/maps/search/Prolog+Coffee+Bar+Copenhagen/@55.6867298,12.5516763,13z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - The Corner Frederiksberg
+    https://www.google.com/maps/search/The+Corner+Frederiksberg+Copenhagen/@55.6909791,12.5526323,14z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Espresso House Nørreport
+    https://www.google.com/maps/search/Espresso+House+N%C3%B8rreport+Copenhagen/@55.6769978,12.5827394,14z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Nørrebro Park
+    https://www.google.com/maps/search/N%C3%B8rrebro+Park+Copenhagen/@55.6921378,12.5532808,14z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Utterslev Mose
+    https://www.google.com/maps/search/Utterslev+Mose+Copenhagen/@55.7184686,12.5074416,14z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+  - Dyrehaven
+    https://www.google.com/maps/search/Dyrehaven+Copenhagen/@55.7892273,12.4677549,11z/data=!3m1!4b1?entry=ttu&g_ep=EgoyMDI2MDMyNC4wIKXMDSoASAFQAw%3D%3D
+PS M:\Personal Projects\Dispatch>
