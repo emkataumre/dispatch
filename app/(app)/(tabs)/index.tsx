@@ -5,6 +5,7 @@ import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
 import { PoiLayer } from '@/components/map/PoiLayer'
 import { CategoryFilterBar } from '@/components/map/CategoryFilterBar'
+import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
 import { POI_CATEGORIES, PoiCategory } from '@/lib/poiCategories'
 
 type Poi = Tables<'pois'>
@@ -16,6 +17,7 @@ const ALL_ACTIVE = Object.fromEntries(
 export default function MapScreen() {
   const { pois } = usePois()
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
+  const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
 
   const filteredPois = useMemo(
     () => pois.filter((p) => activeCategories[p.category] !== false),
@@ -23,8 +25,11 @@ export default function MapScreen() {
   )
 
   const handlePoiPress = useCallback((poi: Poi) => {
-    // Bottom sheet — Phase 2 next task
-    console.log('POI tapped:', poi.name, poi.category)
+    setSelectedPoi(poi)
+  }, [])
+
+  const handleSheetClose = useCallback(() => {
+    setSelectedPoi(null)
   }, [])
 
   return (
@@ -37,6 +42,7 @@ export default function MapScreen() {
         <PoiLayer pois={filteredPois} onPoiPress={handlePoiPress} />
       </Mapbox.MapView>
       <CategoryFilterBar value={activeCategories} onChange={setActiveCategories} />
+      <PoiBottomSheet poi={selectedPoi} onClose={handleSheetClose} />
     </View>
   )
 }
