@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import Mapbox from '@rnmapbox/maps'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -22,5 +23,5 @@ export default function RootLayout() {
     }
   }, [session, loading, segments])
 
-  return <Slot />
+  return <GestureHandlerRootView style={{ flex: 1 }}><Slot /></GestureHandlerRootView>
 }
