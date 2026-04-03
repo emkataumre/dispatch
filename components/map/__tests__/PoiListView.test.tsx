@@ -6,7 +6,7 @@
  */
 
 import React from 'react'
-import { act, create } from 'react-test-renderer'
+import { act, create, ReactTestInstance } from 'react-test-renderer'
 import { PoiListView } from '../PoiListView'
 import { PoiListRow } from '../PoiListRow'
 import { Tables } from '@/types/supabase'
@@ -43,7 +43,7 @@ describe('PoiListView', () => {
 
     // Verify the empty container is present by testID.
     // findAll returns both the React component node and the host node, so check > 0.
-    const emptyNodes = root!.root.findAll((n) => n.props.testID === 'poi-list-empty')
+    const emptyNodes = root!.root.findAll((n: ReactTestInstance) => n.props.testID === 'poi-list-empty')
     expect(emptyNodes.length).toBeGreaterThan(0)
   })
 
