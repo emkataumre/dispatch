@@ -1,7 +1,7 @@
 import Mapbox from '@rnmapbox/maps'
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
@@ -18,8 +18,9 @@ const ALL_ACTIVE = Object.fromEntries(
 ) as Record<PoiCategory, boolean>
 
 export default function MapScreen() {
-  const { pois } = usePois()
-  const { avgRatings } = useAllPoiRatings()
+  const { pois, error: poisError } = usePois()
+  const { avgRatings, error: ratingsError } = useAllPoiRatings()
+  const dataError = poisError ?? ratingsError
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
@@ -91,6 +92,14 @@ export default function MapScreen() {
         />
       </Pressable>
 
+      {dataError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>
+            {poisError ? "Couldn't load places — check your connection." : "Ratings unavailable."}
+          </Text>
+        </View>
+      )}
+
       <PoiBottomSheet poi={selectedPoi} onClose={handleSheetClose} />
     </View>
   )
@@ -100,6 +109,21 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
   hidden: { display: 'none' },
+  errorBanner: {
+    position: 'absolute',
+    bottom: 90,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(180, 30, 30, 0.92)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   toggleButton: {
     position: 'absolute',
     top: 56,
