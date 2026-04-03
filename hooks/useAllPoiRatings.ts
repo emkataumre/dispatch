@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase'
 
 // Shape of a row returned by the poi_avg_ratings view (migration 009).
 // Typed manually here because the view was added after the last `supabase gen types` run.
-// TODO: remove this type and the cast below once types/supabase.ts is regenerated after migration 009.
+// TODO: remove AvgRatingRow, the response type cast, and the (supabase as any) cast once
+// types/supabase.ts is regenerated after migration 009 (`supabase gen types`).
 type AvgRatingRow = { poi_id: string; avg_rating: number | null }
 
 export function useAllPoiRatings() {

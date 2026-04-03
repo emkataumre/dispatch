@@ -86,7 +86,7 @@ export default function MapScreen() {
 
       <CategoryFilterBar value={activeCategories} onChange={setActiveCategories} />
 
-      <Pressable style={styles.toggleButton} onPress={toggleViewMode}>
+      <Pressable style={styles.toggleButton} onPress={toggleViewMode} testID="view-mode-toggle">
         <Ionicons
           name={viewMode === 'map' ? 'list' : 'map'}
           size={20}

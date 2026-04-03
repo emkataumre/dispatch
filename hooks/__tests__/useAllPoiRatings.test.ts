@@ -127,6 +127,24 @@ describe('useAllPoiRatings', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  it('refetch triggers a new query and updates avgRatings', async () => {
+    mockSelectFn
+      .mockResolvedValueOnce({ data: [{ poi_id: 'poi-1', avg_rating: 3 }], error: null })
+      .mockResolvedValueOnce({ data: [{ poi_id: 'poi-1', avg_rating: 5 }], error: null })
+
+    const result = renderHook(() => useAllPoiRatings())
+    await flush()
+
+    expect(result.current.avgRatings['poi-1']).toBe(3)
+
+    await act(async () => {
+      await result.current.refetch()
+    })
+
+    expect(result.current.avgRatings['poi-1']).toBe(5)
+    expect(mockSelectFn).toHaveBeenCalledTimes(2)
+  })
+
   it('sets error and leaves avgRatings empty when query fails', async () => {
     mockSelectFn.mockResolvedValue({ data: null, error: { message: 'network error' } })
 
