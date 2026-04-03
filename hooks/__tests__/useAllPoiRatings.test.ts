@@ -9,16 +9,10 @@
 import React from 'react'
 import { act, create } from 'react-test-renderer'
 
-// ---------------------------------------------------------------------------
-// mock-prefixed variables referenced inside jest.mock() factories.
-// ---------------------------------------------------------------------------
-
 const mockSelectFn = jest.fn()
 
-// ---------------------------------------------------------------------------
-// Module mocks — hoisted before imports.
-// ---------------------------------------------------------------------------
-
+// jest.mock() is hoisted automatically by Jest regardless of file position,
+// so this mock applies even though useAllPoiRatings is imported below.
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
@@ -27,14 +21,8 @@ jest.mock('@/lib/supabase', () => ({
   },
 }))
 
-// ---------------------------------------------------------------------------
-// Import hook AFTER mocks are registered.
-// ---------------------------------------------------------------------------
 import { useAllPoiRatings } from '../useAllPoiRatings'
 
-// ---------------------------------------------------------------------------
-// Minimal renderHook helper.
-// ---------------------------------------------------------------------------
 type HookResult<T> = { current: T }
 
 function renderHook<T>(useHook: () => T): HookResult<T> {
@@ -57,10 +45,6 @@ async function flush() {
     await Promise.resolve()
   })
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 beforeEach(() => {
   jest.clearAllMocks()

@@ -13,6 +13,7 @@ type Props = {
 export function PoiListRow({ poi, avgRating, onPress }: Props) {
   const color = CATEGORY_COLORS[poi.category]
   const label = CATEGORY_LABELS[poi.category]
+  const hasRating = avgRating !== null
 
   return (
     <Pressable
@@ -26,8 +27,8 @@ export function PoiListRow({ poi, avgRating, onPress }: Props) {
           <Text style={[styles.pillText, { color }]}>{label}</Text>
         </View>
       </View>
-      <Text style={avgRating !== null ? styles.rating : styles.noRating}>
-        {avgRating !== null ? `★ ${avgRating.toFixed(1)}` : 'No ratings'}
+      <Text style={hasRating ? styles.rating : styles.noRating}>
+        {hasRating ? `★ ${avgRating.toFixed(1)}` : 'No ratings'}
       </Text>
     </Pressable>
   )

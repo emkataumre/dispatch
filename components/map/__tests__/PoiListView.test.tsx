@@ -27,10 +27,6 @@ function makePoi(overrides: Partial<Poi> = {}): Poi {
   } as Poi
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('PoiListView', () => {
   it('renders the empty state when pois array is empty', () => {
     let root: ReturnType<typeof create>

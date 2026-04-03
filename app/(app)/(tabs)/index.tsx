@@ -20,7 +20,6 @@ const ALL_ACTIVE = Object.fromEntries(
 export default function MapScreen() {
   const { pois, error: poisError } = usePois()
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
-  const dataError = poisError ?? ratingsError
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
@@ -47,6 +46,10 @@ export default function MapScreen() {
     setSelectedPoi(poi)
   }, [])
 
+  // setCamera must run after the map is visible again. Calling it synchronously inside
+  // handleListRowPress (before the viewMode state update re-renders and unhides the map)
+  // is unreliable — the native GL surface may not be ready. pendingCamera stores the
+  // target POI so this effect can fire the camera command after the render commits.
   useEffect(() => {
     if (viewMode === 'map' && pendingCamera.current) {
       const poi = pendingCamera.current
@@ -94,7 +97,7 @@ export default function MapScreen() {
         />
       </Pressable>
 
-      {dataError && (
+      {(poisError || ratingsError) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>
             {poisError ? "Couldn't load places — check your connection." : "Ratings unavailable."}

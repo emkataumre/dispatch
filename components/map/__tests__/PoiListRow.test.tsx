@@ -9,6 +9,7 @@ import React from 'react'
 import { Text } from 'react-native'
 import { act, create, ReactTestInstance } from 'react-test-renderer'
 import { PoiListRow } from '../PoiListRow'
+import { CATEGORY_LABELS } from '@/lib/poiCategories'
 import { Tables } from '@/types/supabase'
 
 type Poi = Tables<'pois'>
@@ -33,10 +34,6 @@ function findTexts(root: ReturnType<typeof create>): string[] {
     .map((n: ReactTestInstance) => String(n.props.children))
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('PoiListRow', () => {
   it('shows "No ratings" when avgRating is null', () => {
     const poi = makePoi()
@@ -58,6 +55,17 @@ describe('PoiListRow', () => {
     })
 
     expect(findTexts(root!)).toContain('★ 4.6')
+  })
+
+  it('shows the correct category label from CATEGORY_LABELS', () => {
+    const poi = makePoi({ category: 'nightlife' })
+    let root: ReturnType<typeof create>
+
+    act(() => {
+      root = create(<PoiListRow poi={poi} avgRating={null} onPress={jest.fn()} />)
+    })
+
+    expect(findTexts(root!)).toContain(CATEGORY_LABELS['nightlife'])
   })
 
   it('calls onPress with the poi when the row is pressed', () => {
