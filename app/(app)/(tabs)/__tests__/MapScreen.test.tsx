@@ -61,6 +61,7 @@ jest.mock('@/components/map/PoiListView', () => ({ PoiListView: (props: any) => 
 // ---------------------------------------------------------------------------
 // Imports resolve to mocked versions — used with findByType
 // ---------------------------------------------------------------------------
+import Mapbox from '@rnmapbox/maps'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
 import { PoiLayer } from '@/components/map/PoiLayer'
@@ -99,6 +100,16 @@ describe('MapScreen', () => {
       error: null,
       refetch: mockRefetchRatings,
     })
+  })
+
+  it('Camera initializes centered on Copenhagen at zoom 13', () => {
+    let root: ReturnType<typeof create>
+
+    act(() => { root = create(<MapScreen />) })
+
+    const camera = root!.root.findByType(Mapbox.Camera)
+    expect(camera.props.centerCoordinate).toEqual([12.5683, 55.6761])
+    expect(camera.props.zoomLevel).toBe(13)
   })
 
   it('handleSheetClose clears selected POI and calls refetchRatings', () => {
