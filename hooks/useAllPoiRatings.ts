@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // Shape of a row returned by the poi_avg_ratings view (migration 009).
@@ -11,15 +11,13 @@ export function useAllPoiRatings() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let active = true
-
+  const refetch = useCallback(() => {
+    setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(supabase as any)
       .from('poi_avg_ratings')
       .select('poi_id, avg_rating')
       .then(({ data, error: fetchError }: { data: AvgRatingRow[] | null; error: { message: string } | null }) => {
-        if (!active) return
         if (fetchError) {
           console.error('useAllPoiRatings:', fetchError.message)
           setError(fetchError.message)
@@ -35,9 +33,11 @@ export function useAllPoiRatings() {
         setAvgRatings(result)
         setLoading(false)
       })
-
-    return () => { active = false }
   }, [])
 
-  return { avgRatings, loading, error }
+  useEffect(() => {
+    refetch()
+  }, [refetch])
+
+  return { avgRatings, loading, error, refetch }
 }

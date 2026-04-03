@@ -110,6 +110,23 @@ describe('useAllPoiRatings', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  it('excludes rows where avg_rating is null', async () => {
+    mockSelectFn.mockResolvedValue({
+      data: [
+        { poi_id: 'poi-1', avg_rating: null },
+        { poi_id: 'poi-2', avg_rating: 3.5 },
+      ],
+      error: null,
+    })
+
+    const result = renderHook(() => useAllPoiRatings())
+    await flush()
+
+    expect(result.current.avgRatings['poi-1']).toBeUndefined()
+    expect(result.current.avgRatings['poi-2']).toBe(3.5)
+    expect(result.current.loading).toBe(false)
+  })
+
   it('sets error and leaves avgRatings empty when query fails', async () => {
     mockSelectFn.mockResolvedValue({ data: null, error: { message: 'network error' } })
 

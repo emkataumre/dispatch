@@ -67,6 +67,36 @@ describe('PoiListView', () => {
     expect(row.props.poi).toEqual(poi)
   })
 
+  it('forwards the correct avgRating from avgRatings map to each row', () => {
+    const poi = makePoi({ id: 'poi-abc', name: 'Test Cafe' })
+
+    let root: ReturnType<typeof create>
+
+    act(() => {
+      root = create(
+        <PoiListView pois={[poi]} avgRatings={{ 'poi-abc': 4.5 }} onPoiPress={jest.fn()} />
+      )
+    })
+
+    const row = root!.root.findByType(PoiListRow)
+    expect(row.props.avgRating).toBe(4.5)
+  })
+
+  it('passes null avgRating when POI has no entry in avgRatings', () => {
+    const poi = makePoi({ id: 'poi-xyz' })
+
+    let root: ReturnType<typeof create>
+
+    act(() => {
+      root = create(
+        <PoiListView pois={[poi]} avgRatings={{}} onPoiPress={jest.fn()} />
+      )
+    })
+
+    const row = root!.root.findByType(PoiListRow)
+    expect(row.props.avgRating).toBeNull()
+  })
+
   it('renders one row per POI', () => {
     const pois = [
       makePoi({ id: 'poi-1', name: 'Cafe 1' }),

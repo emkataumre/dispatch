@@ -19,7 +19,7 @@ const ALL_ACTIVE = Object.fromEntries(
 
 export default function MapScreen() {
   const { pois, error: poisError } = usePois()
-  const { avgRatings, error: ratingsError } = useAllPoiRatings()
+  const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
   const dataError = poisError ?? ratingsError
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
@@ -38,7 +38,8 @@ export default function MapScreen() {
 
   const handleSheetClose = useCallback(() => {
     setSelectedPoi(null)
-  }, [])
+    refetchRatings()
+  }, [refetchRatings])
 
   const handleListRowPress = useCallback((poi: Poi) => {
     pendingCamera.current = poi
