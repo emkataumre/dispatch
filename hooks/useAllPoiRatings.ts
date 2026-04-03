@@ -11,32 +11,43 @@ export function useAllPoiRatings() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refetch = useCallback(() => {
+  const refetch = useCallback(async (signal?: { cancelled: boolean }) => {
     setLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
-      .from('poi_avg_ratings')
-      .select('poi_id, avg_rating')
-      .then(({ data, error: fetchError }: { data: AvgRatingRow[] | null; error: { message: string } | null }) => {
-        if (fetchError) {
-          console.error('useAllPoiRatings:', fetchError.message)
-          setError(fetchError.message)
-          setLoading(false)
-          return
+    setError(null)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error: fetchError } = await (supabase as any)
+        .from('poi_avg_ratings')
+        .select('poi_id, avg_rating') as { data: AvgRatingRow[] | null; error: { message: string } | null }
+
+      if (signal?.cancelled) return
+
+      if (fetchError) {
+        console.error('useAllPoiRatings:', fetchError.message)
+        setError(fetchError.message)
+        return
+      }
+      const result: Record<string, number> = {}
+      for (const row of data ?? []) {
+        if (row.avg_rating !== null) {
+          result[row.poi_id] = Number(row.avg_rating)
         }
-        const result: Record<string, number> = {}
-        for (const row of data ?? []) {
-          if (row.avg_rating !== null) {
-            result[row.poi_id] = Number(row.avg_rating)
-          }
-        }
-        setAvgRatings(result)
-        setLoading(false)
-      })
+      }
+      setAvgRatings(result)
+    } catch (e) {
+      if (signal?.cancelled) return
+      const message = e instanceof Error ? e.message : 'Unknown error fetching ratings'
+      console.error('useAllPoiRatings (unexpected):', message)
+      setError(message)
+    } finally {
+      if (!signal?.cancelled) setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    refetch()
+    const signal = { cancelled: false }
+    refetch(signal)
+    return () => { signal.cancelled = true }
   }, [refetch])
 
   return { avgRatings, loading, error, refetch }
