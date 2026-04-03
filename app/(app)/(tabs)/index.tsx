@@ -65,7 +65,8 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* MapView stays mounted in list mode (display: none) so cameraRef stays alive */}
+      {/* MapView stays mounted in list mode (display: none) — unmounting would destroy the
+          native Mapbox GL context and invalidate cameraRef, requiring a full re-init on switch back */}
       <Mapbox.MapView style={[styles.map, viewMode === 'list' && styles.hidden]}>
         <Mapbox.Camera
           ref={cameraRef}

@@ -2,8 +2,8 @@
  * Tests for useAllPoiRatings data-transformation logic.
  *
  * Mocks the supabase client so the hook never hits the network.
- * Uses the same minimal renderHook pattern as usePoiRatings.test.ts
- * (react-test-renderer + React.act, no @testing-library/react-hooks needed).
+ * Uses a minimal renderHook helper built on react-test-renderer + React.act
+ * (no @testing-library/react-hooks needed).
  */
 
 import React from 'react'
@@ -78,7 +78,7 @@ describe('useAllPoiRatings', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('computes correct average for a POI with multiple ratings', async () => {
+  it('maps a pre-aggregated avg_rating row into the avgRatings record', async () => {
     mockSelectFn.mockResolvedValue({
       data: [
         { poi_id: 'poi-1', avg_rating: 4 },
@@ -93,7 +93,7 @@ describe('useAllPoiRatings', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('computes independent averages for two different POIs', async () => {
+  it('maps pre-aggregated rows for two POIs into independent avgRatings entries', async () => {
     mockSelectFn.mockResolvedValue({
       data: [
         { poi_id: 'poi-1', avg_rating: 2 },
