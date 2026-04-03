@@ -32,12 +32,14 @@ export function usePoiRatings(poiId: string | undefined) {
   const [comments, setComments] = useState<RatingComment[]>([])
   const [myRating, setMyRating] = useState<MyRating | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Accepts an optional isCancelled guard so the useEffect can cancel in-flight
   // requests when poiId changes, while refetch() calls pass no guard.
   const load = useCallback(async (isCancelled?: () => boolean) => {
     if (!poiId) return
     setLoading(true)
+    setError(null)
 
     // Relies on the "Profiles viewable by authenticated users" RLS SELECT policy
     // allowing cross-user reads of display_name. If that policy is ever tightened,
@@ -52,6 +54,7 @@ export function usePoiRatings(poiId: string | undefined) {
 
     if (error) {
       console.error('usePoiRatings:', error.message)
+      setError(error.message)
       setLoading(false)
       return
     }
@@ -96,5 +99,5 @@ export function usePoiRatings(poiId: string | undefined) {
     }
   }, [poiId, load])
 
-  return { avgRating, ratingCount, comments, myRating, loading, refetch: load }
+  return { avgRating, ratingCount, comments, myRating, loading, error, refetch: load }
 }
