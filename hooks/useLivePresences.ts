@@ -33,41 +33,44 @@ export function useLivePresences() {
     }
 
     let active = true
+    let initialSubscribe = true
     setError(null)
     setLoading(true)
 
-    // Initial fetch — join profiles to get display names and avatars in one round trip
-    supabase
-      .from('live_presence')
-      .select('id, user_id, poi_id, message, profiles(display_name, avatar_url)')
-      .is('dismissed_at', null)
-      .neq('user_id', userId)
-      .then(({ data, error: fetchError }) => {
-        if (!active) return
-        if (fetchError) {
-          console.error('useLivePresences:', fetchError.message)
-          setError(fetchError.message)
-          setLoading(false)
-          return
-        }
-        const entries: LivePresenceEntry[] = []
-        for (const row of (data ?? [])) {
-          const profile = row.profiles as { display_name: string; avatar_url: string | null } | null
-          const displayName = profile?.display_name ?? ''
-          const avatarUrl = profile?.avatar_url ?? null
-          profileCache.current.set(row.user_id, { displayName, avatarUrl })
-          entries.push({
-            id: row.id,
-            userId: row.user_id,
-            poiId: row.poi_id,
-            displayName,
-            avatarUrl,
-            message: row.message,
-          })
-        }
-        setPresences(entries)
+    const fetchPresences = async () => {
+      const { data, error: fetchError } = await supabase
+        .from('live_presence')
+        .select('id, user_id, poi_id, message, profiles(display_name, avatar_url)')
+        .is('dismissed_at', null)
+        .neq('user_id', userId)
+      if (!active) return
+      if (fetchError) {
+        console.error('useLivePresences:', fetchError.message)
+        setError(fetchError.message)
         setLoading(false)
-      })
+        return
+      }
+      const entries: LivePresenceEntry[] = []
+      for (const row of (data ?? [])) {
+        const profile = row.profiles as { display_name: string; avatar_url: string | null } | null
+        const displayName = profile?.display_name ?? ''
+        const avatarUrl = profile?.avatar_url ?? null
+        profileCache.current.set(row.user_id, { displayName, avatarUrl })
+        entries.push({
+          id: row.id,
+          userId: row.user_id,
+          poiId: row.poi_id,
+          displayName,
+          avatarUrl,
+          message: row.message,
+        })
+      }
+      setPresences(entries)
+      setError(null)
+      setLoading(false)
+    }
+
+    fetchPresences()
 
     const handleInsert = async (payload: { new: Record<string, unknown> }) => {
       if (!active) return
@@ -135,11 +138,18 @@ export function useLivePresences() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_presence' }, handleUpdate)
       .subscribe((status: string, err?: Error) => {
         if (!active) return
-        if (status === 'TIMED_OUT') {
+        if (status === 'SUBSCRIBED') {
+          if (initialSubscribe) {
+            initialSubscribe = false
+          } else {
+            // Reconnected after a drop — re-fetch to catch missed events
+            fetchPresences()
+          }
+        } else if (status === 'TIMED_OUT') {
           console.error('useLivePresences: Realtime subscription timed out')
           setError('Live updates timed out — pull to refresh.')
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('useLivePresences: Realtime channel error', err?.message)
+          console.error('useLivePresences: Realtime channel error', err?.message ?? '(no details)')
           setError('Live updates unavailable — pull to refresh.')
         } else if (status === 'CLOSED') {
           console.error('useLivePresences: Realtime channel closed unexpectedly')
