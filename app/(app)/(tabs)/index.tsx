@@ -70,11 +70,15 @@ export default function MapScreen() {
     <View style={styles.container}>
       {/* MapView stays mounted in list mode (display: none) — unmounting would destroy the
           native Mapbox GL context and invalidate cameraRef, requiring a full re-init on switch back */}
-      <Mapbox.MapView style={[styles.map, viewMode === 'list' && styles.hidden]}>
+      <Mapbox.MapView style={[styles.map, viewMode === 'list' && styles.hidden]} styleURL={Mapbox.StyleURL.Light}>
         <Mapbox.Camera
           ref={cameraRef}
-          zoomLevel={13}
+          defaultSettings={{
+            centerCoordinate: [12.5683, 55.6761],
+            zoomLevel: 13,
+          }}
           centerCoordinate={[12.5683, 55.6761]}
+          zoomLevel={13}
         />
         <PoiLayer pois={filteredPois} onPoiPress={handlePoiPress} />
       </Mapbox.MapView>

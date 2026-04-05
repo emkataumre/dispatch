@@ -89,7 +89,7 @@ function CommentRow({ item }: { item: RatingComment }) {
 }
 
 export function PoiBottomSheet({ poi, onClose }: Props) {
-  const snapPoints = useMemo(() => ["42%", "82%"], []);
+  const snapPoints = useMemo(() => ["42%", "82%", "100%"], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const ratingModalRef = useRef<PoiRatingModalHandle>(null);
   const { avgRating, ratingCount, comments, myRating, refetch } = usePoiRatings(
@@ -222,7 +222,10 @@ export function PoiBottomSheet({ poi, onClose }: Props) {
                 ) : (
                   <TouchableOpacity
                     style={styles.reviewButton}
-                    onPress={() => ratingModalRef.current?.present()}
+                    onPress={() => {
+                      bottomSheetRef.current?.snapToIndex(2);
+                      ratingModalRef.current?.present();
+                    }}
                     activeOpacity={0.75}
                   >
                     <Text style={styles.reviewIcon}>✦</Text>

@@ -27,6 +27,9 @@ jest.mock('@rnmapbox/maps', () => {
         React.useImperativeHandle(ref, () => ({ setCamera: mockSetCamera }))
         return null
       }),
+      StyleURL: {
+        Light: 'mapbox://styles/mapbox/light-v10',
+      },
     },
   }
 })
