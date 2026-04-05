@@ -32,7 +32,7 @@ export default function ProfileModal() {
 
   async function pickAvatar() {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -48,12 +48,13 @@ export default function ProfileModal() {
     if (authError) { console.error('Failed to get user:', authError.message); setLoading(false); return }
     if (!user) { setLoading(false); return }
 
-    const ext = uri.split('.').pop()
+    const ext = uri.split('.').pop() ?? 'jpg'
     const path = `${user.id}/avatar.${ext}`
-    const response = await fetch(uri)
-    const blob = await response.blob()
 
-    const { error } = await supabase.storage.from('avatars').upload(path, blob, { upsert: true })
+    const formData = new FormData()
+    formData.append('file', { uri, name: `avatar.${ext}`, type: `image/${ext}` } as any)
+
+    const { error } = await supabase.storage.from('avatars').upload(path, formData, { upsert: true })
     if (error) {
       console.error('Failed to upload avatar:', error.message)
       setError('Failed to upload avatar.')
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center',
   },
   avatarPlaceholderText: { fontSize: 13, color: '#999' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 16, color: '#000' },
   button: { backgroundColor: '#0066FF', borderRadius: 8, padding: 16, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   error: { color: '#CC0000', marginBottom: 12, fontSize: 14 },

@@ -24,6 +24,7 @@
     },
     "android": {
       "package": "com.dispatch.app",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",

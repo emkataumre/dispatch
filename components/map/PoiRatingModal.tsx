@@ -1,6 +1,16 @@
-import { forwardRef, useImperativeHandle, useRef, useMemo, useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
-import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet'
+import { forwardRef, useImperativeHandle, useState } from 'react'
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+} from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { submitRating } from '@/lib/ratings'
 
@@ -20,9 +30,7 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
   { poiId, onSubmitted },
   ref
 ) {
-  const modalRef = useRef<BottomSheetModal>(null)
-  const snapPoints = useMemo(() => ['55%'], [])
-
+  const [visible, setVisible] = useState(false)
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -33,9 +41,9 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
       setSelectedRating(null)
       setComment('')
       setError(null)
-      modalRef.current?.present()
+      setVisible(true)
     },
-    dismiss: () => modalRef.current?.dismiss(),
+    dismiss: () => setVisible(false),
   }))
 
   const handleSubmit = async () => {
@@ -43,13 +51,9 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
     setSubmitting(true)
     setError(null)
     try {
-      await submitRating(supabase, {
-        poiId,
-        rating: selectedRating,
-        comment,
-      })
+      await submitRating(supabase, { poiId, rating: selectedRating, comment })
       onSubmitted()
-      modalRef.current?.dismiss()
+      setVisible(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
@@ -60,114 +64,121 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
   const isReady = !!selectedRating && !submitting
 
   return (
-    <BottomSheetModal
-      ref={modalRef}
-      snapPoints={snapPoints}
-      enablePanDownToClose
-      handleIndicatorStyle={styles.handleIndicator}
-      backgroundStyle={styles.modalBackground}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setVisible(false)}
     >
-      <BottomSheetView style={styles.container}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Leave a Review</Text>
-          <Text style={styles.subtitle}>How was your experience?</Text>
-        </View>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setVisible(false)} />
 
-        {/* Star rating picker */}
-        <View style={styles.starsSection}>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <TouchableOpacity
-                key={i}
-                onPress={() => setSelectedRating(i)}
-                hitSlop={6}
-                activeOpacity={0.7}
-                style={styles.starButton}
-              >
-                <Text
-                  style={[
-                    styles.star,
-                    selectedRating !== null && i <= selectedRating
-                      ? styles.starActive
-                      : styles.starInactive,
-                  ]}
+        <View style={styles.card}>
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Leave a Review</Text>
+            <Text style={styles.subtitle}>How was your experience?</Text>
+          </View>
+
+          {/* Star rating picker */}
+          <View style={styles.starsSection}>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => setSelectedRating(i)}
+                  hitSlop={6}
+                  activeOpacity={0.7}
+                  style={styles.starButton}
                 >
-                  {selectedRating !== null && i <= selectedRating ? '★' : '☆'}
+                  <Text
+                    style={[
+                      styles.star,
+                      selectedRating !== null && i <= selectedRating
+                        ? styles.starActive
+                        : styles.starInactive,
+                    ]}
+                  >
+                    {selectedRating !== null && i <= selectedRating ? '★' : '☆'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.starLabel}>
+              {selectedRating ? STAR_LABELS[selectedRating] : 'Tap to rate'}
+            </Text>
+          </View>
+
+          {/* Comment input */}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Share what you loved (or didn't)…"
+              placeholderTextColor="#C0BDB8"
+              multiline
+              maxLength={280}
+              value={comment}
+              onChangeText={setComment}
+            />
+            <Text style={styles.charCount}>{comment.length}/280</Text>
+          </View>
+
+          {/* Error */}
+          {error ? (
+            <View style={styles.errorRow}>
+              <Text style={styles.errorIcon}>⚠</Text>
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          ) : null}
+
+          {/* Submit */}
+          <TouchableOpacity
+            style={[styles.submitButton, isReady ? styles.submitActive : styles.submitDisabled]}
+            onPress={handleSubmit}
+            disabled={!isReady}
+            activeOpacity={0.85}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Text style={styles.submitText}>
+                  {isReady ? 'Submit Review' : 'Select a rating first'}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.starLabel}>
-            {selectedRating ? STAR_LABELS[selectedRating] : 'Tap to rate'}
-          </Text>
+                {isReady && <Text style={styles.submitArrow}>→</Text>}
+              </>
+            )}
+          </TouchableOpacity>
         </View>
-
-        {/* Comment input */}
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder="Share what you loved (or didn't)…"
-            placeholderTextColor="#C0BDB8"
-            multiline
-            maxLength={280}
-            value={comment}
-            onChangeText={setComment}
-          />
-          <Text style={styles.charCount}>{comment.length}/280</Text>
-        </View>
-
-        {/* Error */}
-        {error ? (
-          <View style={styles.errorRow}>
-            <Text style={styles.errorIcon}>⚠</Text>
-            <Text style={styles.error}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* Submit */}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            isReady ? styles.submitActive : styles.submitDisabled,
-          ]}
-          onPress={handleSubmit}
-          disabled={!isReady}
-          activeOpacity={0.85}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Text style={styles.submitText}>
-                {isReady ? 'Submit Review' : 'Select a rating first'}
-              </Text>
-              {isReady && <Text style={styles.submitArrow}>→</Text>}
-            </>
-          )}
-        </TouchableOpacity>
-      </BottomSheetView>
-    </BottomSheetModal>
+      </KeyboardAvoidingView>
+    </Modal>
   )
 })
 
 const styles = StyleSheet.create({
-  modalBackground: {
+  overlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  card: {
+    width: '88%',
     backgroundColor: '#FAFAF8',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  handleIndicator: {
-    width: 36,
-    height: 4,
-    backgroundColor: '#D4D4CF',
-    borderRadius: 2,
-  },
-  container: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 32,
+    borderRadius: 24,
+    padding: 24,
     gap: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
   },
   headerRow: {
     gap: 3,
