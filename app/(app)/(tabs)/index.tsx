@@ -8,6 +8,7 @@ import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
 import { useActivePresence } from '@/hooks/useActivePresence'
 import { useLivePresences } from '@/hooks/useLivePresences'
+import { usePresenceJoins } from '@/hooks/usePresenceJoins'
 import { PoiLayer } from '@/components/map/PoiLayer'
 import { PresenceLayer } from '@/components/map/PresenceLayer'
 import { CategoryFilterBar } from '@/components/map/CategoryFilterBar'
@@ -26,6 +27,7 @@ export default function MapScreen() {
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
   const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
   const { presences, error: presenceError } = useLivePresences()
+  const { join, cancel, getJoinForPresence } = usePresenceJoins()
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
@@ -156,6 +158,10 @@ export default function MapScreen() {
         onBroadcast={setBroadcast}
         onDismissBroadcast={clearBroadcast}
         locationGranted={locationGranted}
+        presences={presences}
+        getJoinForPresence={getJoinForPresence}
+        onJoinPresence={join}
+        onCancelJoin={cancel}
       />
     </View>
   )

@@ -85,6 +85,17 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }))
 jest.mock('@/hooks/useLivePresences', () => ({
   useLivePresences: jest.fn(() => ({ presences: [], loading: false, error: null })),
 }))
+
+jest.mock('@/hooks/usePresenceJoins', () => ({
+  usePresenceJoins: jest.fn(() => ({
+    joins: [],
+    loading: false,
+    error: null,
+    join: jest.fn(),
+    cancel: jest.fn(),
+    getJoinForPresence: jest.fn(() => undefined),
+  })),
+}))
 jest.mock('@/components/map/PoiLayer', () => ({ PoiLayer: (props: any) => null }))
 jest.mock('@/components/map/PresenceLayer', () => ({ PresenceLayer: (props: any) => null }))
 jest.mock('@/components/map/CategoryFilterBar', () => ({ CategoryFilterBar: () => null }))
@@ -138,21 +149,21 @@ describe('MapScreen', () => {
     ;(useLivePresences as jest.Mock).mockReturnValue({ presences: [], loading: false, error: null })
   })
 
-  it('Camera initializes centered on Copenhagen at zoom 13', () => {
+  it('Camera initializes centered on Copenhagen at zoom 13', async () => {
     let root: ReturnType<typeof create>
 
-    act(() => { root = create(<MapScreen />) })
+    await act(async () => { root = create(<MapScreen />) })
 
     const camera = root!.root.findByType(Mapbox.Camera)
     expect(camera.props.defaultSettings.centerCoordinate).toEqual([12.5683, 55.6761])
     expect(camera.props.defaultSettings.zoomLevel).toBe(13)
   })
 
-  it('handleSheetClose clears selected POI and calls refetchRatings', () => {
+  it('handleSheetClose clears selected POI and calls refetchRatings', async () => {
     const poi = makePoi()
     let root: ReturnType<typeof create>
 
-    act(() => { root = create(<MapScreen />) })
+    await act(async () => { root = create(<MapScreen />) })
 
     // Open bottom sheet by tapping a map POI
     act(() => { root!.root.findByType(PoiLayer).props.onPoiPress(poi) })
@@ -165,11 +176,11 @@ describe('MapScreen', () => {
     expect(mockRefetchRatings).toHaveBeenCalledTimes(1)
   })
 
-  it('handleListRowPress switches to map, opens bottom sheet, and flies camera to POI', () => {
+  it('handleListRowPress switches to map, opens bottom sheet, and flies camera to POI', async () => {
     const poi = makePoi({ id: 'poi-fly', lat: 55.7, lng: 12.6 })
     let root: ReturnType<typeof create>
 
-    act(() => { root = create(<MapScreen />) })
+    await act(async () => { root = create(<MapScreen />) })
 
     // Switch to list mode via the toggle button
     const toggle = root!.root.findAll(
@@ -193,11 +204,11 @@ describe('MapScreen', () => {
     })
   })
 
-  it('error banner shows POI connection message when usePois errors', () => {
+  it('error banner shows POI connection message when usePois errors', async () => {
     ;(usePois as jest.Mock).mockReturnValue({ pois: [], error: 'network error' })
     let root: ReturnType<typeof create>
 
-    act(() => { root = create(<MapScreen />) })
+    await act(async () => { root = create(<MapScreen />) })
 
     const hasMessage = root!.root
       .findAllByType(Text)
@@ -207,7 +218,7 @@ describe('MapScreen', () => {
     expect(hasMessage).toBe(true)
   })
 
-  it('error banner shows ratings message when only useAllPoiRatings errors', () => {
+  it('error banner shows ratings message when only useAllPoiRatings errors', async () => {
     ;(useAllPoiRatings as jest.Mock).mockReturnValue({
       avgRatings: {},
       loading: false,
@@ -216,7 +227,7 @@ describe('MapScreen', () => {
     })
     let root: ReturnType<typeof create>
 
-    act(() => { root = create(<MapScreen />) })
+    await act(async () => { root = create(<MapScreen />) })
 
     const hasMessage = root!.root
       .findAllByType(Text)
@@ -313,7 +324,7 @@ describe('MapScreen', () => {
   })
 
   // Fix 5: verify setBroadcast/clearBroadcast wiring through PoiBottomSheet props
-  it('passes setBroadcast and clearBroadcast to PoiBottomSheet and they update activePresence', () => {
+  it('passes setBroadcast and clearBroadcast to PoiBottomSheet and they update activePresence', async () => {
     const mockPresence = {
       id: 'presence-1',
       poi_id: 'poi-1',
@@ -322,7 +333,7 @@ describe('MapScreen', () => {
     }
 
     let root: ReturnType<typeof create>
-    act(() => { root = create(<MapScreen />) })
+    await act(async () => { root = create(<MapScreen />) })
 
     const sheet = root!.root.findByType(PoiBottomSheet)
 
