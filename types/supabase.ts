@@ -12,8 +12,78 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+      live_presence: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          message: string | null
+          poi_id: string
+          user_id: string
+          visible_to: Database["public"]["Enums"]["visibility_type"]
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          message?: string | null
+          poi_id: string
+          user_id: string
+          visible_to?: Database["public"]["Enums"]["visibility_type"]
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          message?: string | null
+          poi_id?: string
+          user_id?: string
+          visible_to?: Database["public"]["Enums"]["visibility_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_presence_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "pois"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_presence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poi_ratings: {
         Row: {
           comment: string | null
@@ -155,7 +225,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      poi_avg_ratings: {
+        Row: {
+          avg_rating: number | null
+          poi_id: string | null
+          rating_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poi_ratings_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "pois"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
@@ -167,6 +252,7 @@ export type Database = {
         | "culture"
         | "study_spots"
         | "hidden_gems"
+      visibility_type: "friends" | "community"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -292,6 +378,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       poi_category: [
@@ -301,6 +390,7 @@ export const Constants = {
         "study_spots",
         "hidden_gems",
       ],
+      visibility_type: ["friends", "community"],
     },
   },
 } as const

@@ -1,4 +1,4 @@
-import { useRef, useMemo, useCallback, useEffect } from "react";
+import { useRef, useMemo, useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Linking,
   Platform,
   StyleSheet,
+  Alert,
 } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -19,12 +20,23 @@ import {
   PoiRatingModal,
   PoiRatingModalHandle,
 } from "@/components/map/PoiRatingModal";
+import {
+  BroadcastModal,
+  BroadcastModalHandle,
+} from "@/components/map/BroadcastModal";
+import { useProximity } from "@/hooks/useProximity";
+import { supabase } from "@/lib/supabase";
+import { dismissPresence, ActivePresence } from "@/lib/presence";
 
 type Poi = Tables<"pois">;
 
 type Props = {
   poi: Poi | null;
   onClose: () => void;
+  activePresence: ActivePresence | null;
+  onBroadcast: (presence: ActivePresence) => void;
+  onDismissBroadcast: () => void;
+  locationGranted: boolean;
 };
 
 // Category emoji icons for extra character
@@ -88,12 +100,24 @@ function CommentRow({ item }: { item: RatingComment }) {
   );
 }
 
-export function PoiBottomSheet({ poi, onClose }: Props) {
-  const snapPoints = useMemo(() => ["42%", "82%", "100%"], []);
+export function PoiBottomSheet({
+  poi,
+  onClose,
+  activePresence,
+  onBroadcast,
+  onDismissBroadcast,
+  locationGranted,
+}: Props) {
+  const [dismissing, setDismissing] = useState(false);
+  const snapPoints = useMemo(() => ["82%", "100%"], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const ratingModalRef = useRef<PoiRatingModalHandle>(null);
+  const broadcastModalRef = useRef<BroadcastModalHandle>(null);
   const { avgRating, ratingCount, comments, myRating, refetch } = usePoiRatings(
     poi?.id,
+  );
+  const { isNearby } = useProximity(
+    locationGranted && poi ? { lat: poi.lat, lng: poi.lng } : null
   );
 
   // Drive open/close imperatively so that a swipe-down (which calls onClose → clears poi)
@@ -223,7 +247,7 @@ export function PoiBottomSheet({ poi, onClose }: Props) {
                   <TouchableOpacity
                     style={styles.reviewButton}
                     onPress={() => {
-                      bottomSheetRef.current?.snapToIndex(2);
+                      bottomSheetRef.current?.snapToIndex(1);
                       ratingModalRef.current?.present();
                     }}
                     activeOpacity={0.75}
@@ -233,6 +257,53 @@ export function PoiBottomSheet({ poi, onClose }: Props) {
                   </TouchableOpacity>
                 )}
               </View>
+
+              {/* I'm here / Leave button */}
+              {(() => {
+                if (!poi) return null;
+                const hasActiveBroadcastHere = activePresence?.poi_id === poi.id;
+
+                if (hasActiveBroadcastHere) {
+                  return (
+                    <TouchableOpacity
+                      style={[styles.leaveButton, dismissing && styles.leaveButtonDimmed]}
+                      activeOpacity={0.85}
+                      disabled={dismissing}
+                      onPress={async () => {
+                        setDismissing(true);
+                        try {
+                          await dismissPresence(supabase, { presenceId: activePresence!.id });
+                          onDismissBroadcast();
+                        } catch {
+                          Alert.alert('Error', 'Could not end broadcast. Try again.');
+                        } finally {
+                          setDismissing(false);
+                        }
+                      }}
+                    >
+                      <Text style={styles.leaveButtonText}>Leave</Text>
+                    </TouchableOpacity>
+                  );
+                }
+
+                if (!isNearby) {
+                  return (
+                    <View style={styles.imHereButtonDisabled}>
+                      <Text style={styles.imHereButtonDisabledText}>Get closer to broadcast</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <TouchableOpacity
+                    style={styles.imHereButton}
+                    activeOpacity={0.85}
+                    onPress={() => broadcastModalRef.current?.present()}
+                  >
+                    <Text style={styles.imHereButtonText}>📍 I'm here</Text>
+                  </TouchableOpacity>
+                );
+              })()}
 
               {/* Comments section label */}
               <View style={styles.commentsLabel}>
@@ -261,6 +332,14 @@ export function PoiBottomSheet({ poi, onClose }: Props) {
           ref={ratingModalRef}
           poiId={poi.id}
           onSubmitted={refetch}
+        />
+      )}
+
+      {poi && (
+        <BroadcastModal
+          ref={broadcastModalRef}
+          poiId={poi.id}
+          onSubmitted={onBroadcast}
         />
       )}
     </>
@@ -405,6 +484,53 @@ const styles = StyleSheet.create({
     color: "#7A6030",
     fontSize: 13,
     fontWeight: "600",
+  },
+  imHereButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#131313',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginBottom: 4,
+  },
+  imHereButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+    letterSpacing: 0.1,
+  },
+  imHereButtonDisabled: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EDECEA',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginBottom: 4,
+  },
+  imHereButtonDisabledText: {
+    color: '#AAAAAA',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  leaveButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF1F1',
+    borderWidth: 1.5,
+    borderColor: '#E51E1E30',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginBottom: 4,
+  },
+  leaveButtonText: {
+    color: '#E51E1E',
+    fontWeight: '700',
+    fontSize: 14,
+    letterSpacing: 0.1,
+  },
+  leaveButtonDimmed: {
+    opacity: 0.5,
   },
   commentsLabel: {
     paddingTop: 16,
