@@ -27,12 +27,21 @@ jest.mock('@rnmapbox/maps', () => {
         React.useImperativeHandle(ref, () => ({ setCamera: mockSetCamera }))
         return null
       }),
+      LocationPuck: function MockLocationPuck() { return null },
       StyleURL: {
         Light: 'mapbox://styles/mapbox/light-v10',
       },
     },
   }
 })
+
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  getCurrentPositionAsync: jest.fn(() =>
+    Promise.resolve({ coords: { latitude: 55.6761, longitude: 12.5683 } })
+  ),
+  Accuracy: { High: 3 },
+}))
 
 // ---------------------------------------------------------------------------
 // Hook mocks
@@ -111,8 +120,8 @@ describe('MapScreen', () => {
     act(() => { root = create(<MapScreen />) })
 
     const camera = root!.root.findByType(Mapbox.Camera)
-    expect(camera.props.centerCoordinate).toEqual([12.5683, 55.6761])
-    expect(camera.props.zoomLevel).toBe(13)
+    expect(camera.props.defaultSettings.centerCoordinate).toEqual([12.5683, 55.6761])
+    expect(camera.props.defaultSettings.zoomLevel).toBe(13)
   })
 
   it('handleSheetClose clears selected POI and calls refetchRatings', () => {
@@ -191,5 +200,61 @@ describe('MapScreen', () => {
         String(n.props.children).includes('Ratings unavailable')
       )
     expect(hasMessage).toBe(true)
+  })
+
+  it('return-to-location button calls setCamera with user coordinates', async () => {
+    // render with async act so locationGranted flushes to true
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    const btn = root!.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === 'return-to-location' && typeof n.props.onPress === 'function'
+    )[0]
+    expect(btn).toBeDefined()
+
+    await act(async () => { btn.props.onPress() })
+
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [12.5683, 55.6761],
+      zoomLevel: 15,
+      animationDuration: 800,
+    })
+  })
+
+  it('hides LocationPuck and return-to-location button when permission is denied', async () => {
+    const Location = require('expo-location')
+    Location.requestForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'denied' })
+
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(0)
+    const btns = root!.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === 'return-to-location'
+    )
+    expect(btns.length).toBe(0)
+  })
+
+  it('hides return-to-location button in list mode', async () => {
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    // switch to list mode
+    const toggle = root!.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === 'view-mode-toggle' && typeof n.props.onPress === 'function'
+    )[0]
+    act(() => { toggle.props.onPress() })
+
+    const btns = root!.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === 'return-to-location'
+    )
+    expect(btns.length).toBe(0)
+  })
+
+  it('renders LocationPuck when location permission is granted', async () => {
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(1)
   })
 })

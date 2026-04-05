@@ -1,5 +1,6 @@
 import Mapbox from '@rnmapbox/maps'
 import { Ionicons } from '@expo/vector-icons'
+import * as Location from 'expo-location'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Tables } from '@/types/supabase'
@@ -23,8 +24,19 @@ export default function MapScreen() {
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
+  const [locationGranted, setLocationGranted] = useState(false)
   const cameraRef = useRef<Mapbox.Camera>(null)
   const pendingCamera = useRef<Poi | null>(null)
+
+  useEffect(() => {
+    let active = true
+    Location.requestForegroundPermissionsAsync()
+      .then(({ status }) => {
+        if (active) setLocationGranted(status === 'granted')
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
 
   const filteredPois = useMemo(
     () => pois.filter((p) => activeCategories[p.category] !== false),
@@ -66,6 +78,19 @@ export default function MapScreen() {
     setViewMode((v) => (v === 'map' ? 'list' : 'map'))
   }, [])
 
+  const handleReturnToLocation = useCallback(async () => {
+    try {
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+      cameraRef.current?.setCamera({
+        centerCoordinate: [loc.coords.longitude, loc.coords.latitude],
+        zoomLevel: 15,
+        animationDuration: 800,
+      })
+    } catch {
+      // Location unavailable (e.g. emulator without mock GPS) — do nothing
+    }
+  }, [])
+
   return (
     <View style={styles.container}>
       {/* MapView stays mounted in list mode (display: none) — unmounting would destroy the
@@ -77,10 +102,9 @@ export default function MapScreen() {
             centerCoordinate: [12.5683, 55.6761],
             zoomLevel: 13,
           }}
-          centerCoordinate={[12.5683, 55.6761]}
-          zoomLevel={13}
         />
         <PoiLayer pois={filteredPois} onPoiPress={handlePoiPress} />
+        {locationGranted && <Mapbox.LocationPuck puckBearingEnabled puckBearing="heading" />}
       </Mapbox.MapView>
 
       {viewMode === 'list' && (
@@ -100,6 +124,12 @@ export default function MapScreen() {
           color="#fff"
         />
       </Pressable>
+
+      {locationGranted && viewMode === 'map' && (
+        <Pressable style={styles.locationButton} onPress={handleReturnToLocation} testID="return-to-location">
+          <Ionicons name="locate" size={20} color="#fff" />
+        </Pressable>
+      )}
 
       {(poisError || ratingsError) && (
         <View style={styles.errorBanner}>
@@ -136,6 +166,22 @@ const styles = StyleSheet.create({
   toggleButton: {
     position: 'absolute',
     top: 56,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#131313',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  locationButton: {
+    position: 'absolute',
+    top: 104,
     right: 16,
     width: 40,
     height: 40,
