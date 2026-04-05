@@ -82,7 +82,11 @@ jest.mock('@/hooks/useActivePresence', () => {
 // Child component mocks — render null so only MapScreen's own nodes are visible
 // ---------------------------------------------------------------------------
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }))
+jest.mock('@/hooks/useLivePresences', () => ({
+  useLivePresences: jest.fn(() => ({ presences: [], loading: false, error: null })),
+}))
 jest.mock('@/components/map/PoiLayer', () => ({ PoiLayer: (props: any) => null }))
+jest.mock('@/components/map/PresenceLayer', () => ({ PresenceLayer: (props: any) => null }))
 jest.mock('@/components/map/CategoryFilterBar', () => ({ CategoryFilterBar: () => null }))
 jest.mock('@/components/map/PoiBottomSheet', () => ({ PoiBottomSheet: (props: any) => null }))
 jest.mock('@/components/map/PoiListView', () => ({ PoiListView: (props: any) => null }))
@@ -93,7 +97,9 @@ jest.mock('@/components/map/PoiListView', () => ({ PoiListView: (props: any) => 
 import Mapbox from '@rnmapbox/maps'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
+import { useLivePresences } from '@/hooks/useLivePresences'
 import { PoiLayer } from '@/components/map/PoiLayer'
+import { PresenceLayer } from '@/components/map/PresenceLayer'
 import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
 import { PoiListView } from '@/components/map/PoiListView'
 import { Tables } from '@/types/supabase'
@@ -129,6 +135,7 @@ describe('MapScreen', () => {
       error: null,
       refetch: mockRefetchRatings,
     })
+    ;(useLivePresences as jest.Mock).mockReturnValue({ presences: [], loading: false, error: null })
   })
 
   it('Camera initializes centered on Copenhagen at zoom 13', () => {
@@ -273,6 +280,36 @@ describe('MapScreen', () => {
     await act(async () => { root = create(<MapScreen />) })
 
     expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(1)
+  })
+
+  it('passes unfiltered pois and presences from useLivePresences to PresenceLayer', async () => {
+    const allPois = [
+      makePoi({ id: 'poi-1', category: 'food_drink' }),
+      makePoi({ id: 'poi-2', category: 'nightlife' }),
+    ]
+    const mockPresences = [{ id: 'p-1', userId: 'u-2', poiId: 'poi-1', displayName: 'Jane', avatarUrl: null, message: null }]
+    ;(usePois as jest.Mock).mockReturnValue({ pois: allPois, error: null })
+    ;(useLivePresences as jest.Mock).mockReturnValue({ presences: mockPresences, loading: false, error: null })
+
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    const layer = root!.root.findByType(PresenceLayer)
+    // receives ALL pois, not filtered subset
+    expect(layer.props.pois).toEqual(allPois)
+    expect(layer.props.presences).toEqual(mockPresences)
+  })
+
+  it('passes handlePoiPress to PresenceLayer as onPoiPress and it opens the bottom sheet', async () => {
+    const poi = makePoi()
+    ;(usePois as jest.Mock).mockReturnValue({ pois: [poi], error: null })
+
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    act(() => { root!.root.findByType(PresenceLayer).props.onPoiPress(poi) })
+
+    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi)
   })
 
   // Fix 5: verify setBroadcast/clearBroadcast wiring through PoiBottomSheet props

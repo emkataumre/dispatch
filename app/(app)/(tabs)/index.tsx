@@ -7,7 +7,9 @@ import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
 import { useActivePresence } from '@/hooks/useActivePresence'
+import { useLivePresences } from '@/hooks/useLivePresences'
 import { PoiLayer } from '@/components/map/PoiLayer'
+import { PresenceLayer } from '@/components/map/PresenceLayer'
 import { CategoryFilterBar } from '@/components/map/CategoryFilterBar'
 import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
 import { PoiListView } from '@/components/map/PoiListView'
@@ -23,6 +25,7 @@ export default function MapScreen() {
   const { pois, error: poisError } = usePois()
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
   const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
+  const { presences, error: presenceError } = useLivePresences()
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
@@ -106,6 +109,7 @@ export default function MapScreen() {
           }}
         />
         <PoiLayer pois={filteredPois} onPoiPress={handlePoiPress} />
+        <PresenceLayer presences={presences} pois={pois} onPoiPress={handlePoiPress} />
         {locationGranted && <Mapbox.LocationPuck puckBearingEnabled puckBearing="heading" />}
       </Mapbox.MapView>
 
@@ -133,10 +137,14 @@ export default function MapScreen() {
         </Pressable>
       )}
 
-      {(poisError || ratingsError) && (
+      {(poisError || ratingsError || presenceError) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>
-            {poisError ? "Couldn't load places — check your connection." : "Ratings unavailable."}
+            {poisError
+              ? "Couldn't load places — check your connection."
+              : ratingsError
+              ? 'Ratings unavailable.'
+              : 'Live updates unavailable — check your connection.'}
           </Text>
         </View>
       )}
