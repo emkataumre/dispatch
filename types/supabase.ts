@@ -84,6 +84,45 @@ export type Database = {
           },
         ]
       }
+      presence_joins: {
+        Row: {
+          confirmed: boolean
+          id: string
+          joined_at: string
+          joiner_user_id: string
+          presence_id: string
+        }
+        Insert: {
+          confirmed?: boolean
+          id?: string
+          joined_at?: string
+          joiner_user_id: string
+          presence_id: string
+        }
+        Update: {
+          confirmed?: boolean
+          id?: string
+          joined_at?: string
+          joiner_user_id?: string
+          presence_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presence_joins_presence_id_fkey"
+            columns: ["presence_id"]
+            isOneToOne: false
+            referencedRelation: "live_presence"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presence_joins_joiner_user_id_fkey"
+            columns: ["joiner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poi_ratings: {
         Row: {
           comment: string | null

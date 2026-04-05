@@ -24,9 +24,13 @@ import {
   BroadcastModal,
   BroadcastModalHandle,
 } from "@/components/map/BroadcastModal";
+import { PresenceCard } from "@/components/map/PresenceCard";
 import { useProximity } from "@/hooks/useProximity";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { dismissPresence, ActivePresence } from "@/lib/presence";
+import { LivePresenceEntry } from "@/hooks/useLivePresences";
+import { PresenceJoin } from "@/lib/presenceJoins";
 
 type Poi = Tables<"pois">;
 
@@ -37,6 +41,10 @@ type Props = {
   onBroadcast: (presence: ActivePresence) => void;
   onDismissBroadcast: () => void;
   locationGranted: boolean;
+  presences: LivePresenceEntry[];
+  getJoinForPresence: (presenceId: string) => PresenceJoin | undefined;
+  onJoinPresence: (presenceId: string) => Promise<PresenceJoin | void>;
+  onCancelJoin: (joinId: string) => Promise<void>;
 };
 
 // Category emoji icons for extra character
@@ -107,17 +115,26 @@ export function PoiBottomSheet({
   onBroadcast,
   onDismissBroadcast,
   locationGranted,
+  presences,
+  getJoinForPresence,
+  onJoinPresence,
+  onCancelJoin,
 }: Props) {
   const [dismissing, setDismissing] = useState(false);
   const snapPoints = useMemo(() => ["82%", "100%"], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const ratingModalRef = useRef<PoiRatingModalHandle>(null);
   const broadcastModalRef = useRef<BroadcastModalHandle>(null);
+  const { session } = useAuth();
   const { avgRating, ratingCount, comments, myRating, refetch } = usePoiRatings(
     poi?.id,
   );
   const { isNearby } = useProximity(
     locationGranted && poi ? { lat: poi.lat, lng: poi.lng } : null
+  );
+  const poiPresences = useMemo(
+    () => presences.filter((p) => p.poiId === poi?.id),
+    [presences, poi?.id]
   );
 
   // Drive open/close imperatively so that a swipe-down (which calls onClose → clears poi)
@@ -274,7 +291,8 @@ export function PoiBottomSheet({
                         try {
                           await dismissPresence(supabase, { presenceId: activePresence!.id });
                           onDismissBroadcast();
-                        } catch {
+                        } catch (err) {
+                          console.error('dismissPresence failed:', err)
                           Alert.alert('Error', 'Could not end broadcast. Try again.');
                         } finally {
                           setDismissing(false);
@@ -304,6 +322,28 @@ export function PoiBottomSheet({
                   </TouchableOpacity>
                 );
               })()}
+
+              {/* Who's here */}
+              {poiPresences.length > 0 && (
+                <>
+                  <View style={styles.whosHereLabel}>
+                    <Text style={styles.whosHereLabelText}>
+                      {poiPresences.length}{" "}
+                      {poiPresences.length === 1 ? "Person" : "People"} here
+                    </Text>
+                  </View>
+                  {poiPresences.map((p) => (
+                    <PresenceCard
+                      key={p.id}
+                      presence={p}
+                      existingJoin={getJoinForPresence(p.id)}
+                      onJoin={onJoinPresence}
+                      onCancel={onCancelJoin}
+                      isOwnPresence={p.userId === session?.user.id}
+                    />
+                  ))}
+                </>
+              )}
 
               {/* Comments section label */}
               <View style={styles.commentsLabel}>
@@ -531,6 +571,17 @@ const styles = StyleSheet.create({
   },
   leaveButtonDimmed: {
     opacity: 0.5,
+  },
+  whosHereLabel: {
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  whosHereLabelText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#AAAAAA",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   commentsLabel: {
     paddingTop: 16,
