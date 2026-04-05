@@ -18,6 +18,10 @@ export default function SignupScreen() {
       setError("Please enter a display name.");
       return;
     }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     // TODO: re-enable before launch
     // if (!isEduEmail(email)) {
     //   setError('Please use your .edu university email to sign up.')

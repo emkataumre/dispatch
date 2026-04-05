@@ -67,8 +67,8 @@ export default function ProfileModal() {
 
   async function saveProfile() {
     setError(null)
-    if (!displayName.trim()) {
-      setError('Display name cannot be empty.')
+    if (displayName.trim().length < 2) {
+      setError('Display name must be at least 2 characters.')
       return
     }
     setLoading(true)
