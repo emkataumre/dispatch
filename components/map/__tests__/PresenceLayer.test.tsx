@@ -73,7 +73,7 @@ describe('PresenceLayer', () => {
       root = create(<PresenceLayer presences={[]} pois={[makePoi()]} onPoiPress={jest.fn()} />)
     })
 
-    const markers = root!.root.findAll((n: ReactTestInstance) => n.type === 'MarkerView')
+    const markers = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')
     expect(markers.length).toBe(0)
   })
 
@@ -86,7 +86,7 @@ describe('PresenceLayer', () => {
       )
     })
 
-    const markers = root!.root.findAll((n: ReactTestInstance) => n.type === 'MarkerView')
+    const markers = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')
     expect(markers.length).toBe(1)
     expect(markers[0].props.coordinate).toEqual([12.5683, 55.6761])
   })
@@ -99,7 +99,7 @@ describe('PresenceLayer', () => {
       )
     })
 
-    const bubbles = root!.root.findAll((n: ReactTestInstance) => n.type === 'PresenceBubble')
+    const bubbles = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'PresenceBubble')
     expect(bubbles.length).toBe(1)
     expect(bubbles[0].props.displayName).toBe('Jane Doe')
   })
@@ -116,10 +116,10 @@ describe('PresenceLayer', () => {
       )
     })
 
-    const markers = root!.root.findAll((n: ReactTestInstance) => n.type === 'MarkerView')
+    const markers = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')
     expect(markers.length).toBe(1)
 
-    const bubbles = root!.root.findAll((n: ReactTestInstance) => n.type === 'PresenceBubble')
+    const bubbles = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'PresenceBubble')
     expect(bubbles.length).toBe(2)
   })
 
@@ -134,11 +134,11 @@ describe('PresenceLayer', () => {
       )
     })
 
-    const bubbles = root!.root.findAll((n: ReactTestInstance) => n.type === 'PresenceBubble')
+    const bubbles = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'PresenceBubble')
     expect(bubbles.length).toBe(3)
 
     const texts = root!.root.findAll(
-      (n: ReactTestInstance) => n.type === 'Text' && String(n.props.children).startsWith('+')
+      (n: ReactTestInstance) => (n.type as string) === 'Text' && String(n.props.children).startsWith('+')
     )
     expect(texts.length).toBe(1)
     expect(texts[0].props.children).toBe('+2')
@@ -176,7 +176,7 @@ describe('PresenceLayer', () => {
       )
     })
 
-    const markers = root!.root.findAll((n: ReactTestInstance) => n.type === 'MarkerView')
+    const markers = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')
     expect(markers.length).toBe(2)
   })
 
@@ -189,7 +189,7 @@ describe('PresenceLayer', () => {
       )
     })
 
-    const markers = root!.root.findAll((n: ReactTestInstance) => n.type === 'MarkerView')
+    const markers = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')
     expect(markers.length).toBe(0)
   })
 })

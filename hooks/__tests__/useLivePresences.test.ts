@@ -264,6 +264,39 @@ describe('useLivePresences', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  it('adds presence with fallback name when profile fetch fails on cache miss', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+    mockSingleFn.mockResolvedValue({ data: null, error: { message: 'not found' } })
+
+    const result = renderHook(() => useLivePresences())
+    await flush()
+
+    const { insertHandler } = getCapturedHandlers()
+    await act(async () => { await insertHandler!(makeInsertPayload()) })
+
+    expect(result.current.presences).toHaveLength(1)
+    expect(result.current.presences[0].displayName).toBe('Unknown')
+    expect(result.current.presences[0].avatarUrl).toBeNull()
+  })
+
+  it('updates the message field on a non-dismissal UPDATE', async () => {
+    mockNeqFn.mockResolvedValue({ data: [makeRow({ message: 'original' })], error: null })
+    const result = renderHook(() => useLivePresences())
+    await flush()
+
+    expect(result.current.presences[0].message).toBe('original')
+
+    const { updateHandler } = getCapturedHandlers()
+    act(() => {
+      updateHandler!({
+        new: { id: 'presence-1', user_id: 'user-2', dismissed_at: null, message: 'updated' },
+      })
+    })
+
+    expect(result.current.presences).toHaveLength(1)
+    expect(result.current.presences[0].message).toBe('updated')
+  })
+
   it('does not deduplicate unrelated presences on successive INSERTs', async () => {
     mockNeqFn.mockResolvedValue({ data: [], error: null })
     mockSingleFn.mockResolvedValue({

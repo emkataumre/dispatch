@@ -8,7 +8,7 @@ describe('PresenceBubble', () => {
     let root: ReturnType<typeof create>
     act(() => { root = create(<PresenceBubble displayName="Jane Doe" avatarUrl={null} />) })
 
-    const texts = root!.root.findAll((n: ReactTestInstance) => n.type === 'Text')
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
     const initialsNode = texts.find((n) => String(n.props.children).match(/^[A-Z]{1,2}$/))
     expect(initialsNode?.props.children).toBe('JD')
   })
@@ -17,7 +17,7 @@ describe('PresenceBubble', () => {
     let root: ReturnType<typeof create>
     act(() => { root = create(<PresenceBubble displayName="Jane" avatarUrl={null} />) })
 
-    const texts = root!.root.findAll((n: ReactTestInstance) => n.type === 'Text')
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
     const initialsNode = texts.find((n) => String(n.props.children).match(/^[A-Z]{1,2}$/))
     expect(initialsNode?.props.children).toBe('J')
   })
@@ -37,6 +37,23 @@ describe('PresenceBubble', () => {
 
     const images = root!.root.findAllByType(Image)
     expect(images.length).toBe(0)
+  })
+
+  it('falls back to initials when the avatar image fails to load', () => {
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<PresenceBubble displayName="Jane Doe" avatarUrl="https://example.com/avatar.png" />) })
+
+    // Initially renders an Image
+    expect(root!.root.findAllByType(Image).length).toBeGreaterThan(0)
+
+    // Simulate image load error
+    act(() => { root!.root.findAllByType(Image)[0].props.onError() })
+
+    // Image gone; initials rendered
+    expect(root!.root.findAllByType(Image).length).toBe(0)
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    const initialsNode = texts.find((n) => String(n.props.children).match(/^[A-Z]{1,2}$/))
+    expect(initialsNode?.props.children).toBe('JD')
   })
 
   it('produces the same background color for the same display name', () => {
@@ -59,7 +76,7 @@ describe('PresenceBubble', () => {
 
     const getColor = (root: ReturnType<typeof create>) =>
       root.root
-        .findAll((n: ReactTestInstance) => n.type === 'View')
+        .findAll((n: ReactTestInstance) => (n.type as string) === 'View')
         .map((n) => getBgColor(n.props.style))
         .find((c) => c !== undefined)
 
