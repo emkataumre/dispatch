@@ -7,7 +7,7 @@ import { PresenceBubble } from '@/components/map/PresenceBubble'
 type Props = {
   presence: LivePresenceEntry
   existingJoin: PresenceJoin | undefined
-  onJoin: (presenceId: string) => Promise<void>
+  onJoin: (presenceId: string) => Promise<PresenceJoin | void>
   onCancel: (joinId: string) => Promise<void>
   isOwnPresence: boolean
 }
@@ -20,18 +20,23 @@ export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPr
     setBusy(true)
     try {
       await onJoin(presence.id)
-    } catch {
-      Alert.alert('Error', 'Could not join. Try again.')
+    } catch (err) {
+      console.error('PresenceCard.handleJoin failed:', err)
+      const message = err instanceof Error && err.message.includes('already joined')
+        ? err.message
+        : 'Could not join. Try again.'
+      Alert.alert('Error', message)
     } finally {
       setBusy(false)
     }
   }
 
-  const handleCancel = async () => {
+  const handleCancel = async (joinId: string) => {
     setBusy(true)
     try {
-      await onCancel(existingJoin!.id)
-    } catch {
+      await onCancel(joinId)
+    } catch (err) {
+      console.error('PresenceCard.handleCancel failed:', err)
       Alert.alert('Error', 'Could not cancel. Try again.')
     } finally {
       setBusy(false)
@@ -56,7 +61,7 @@ export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPr
           ) : existingJoin ? (
             <View style={styles.joinedState}>
               <Text style={styles.onMyWayText}>On my way</Text>
-              <TouchableOpacity onPress={handleCancel} hitSlop={8}>
+              <TouchableOpacity onPress={() => handleCancel(existingJoin.id)} hitSlop={8}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
             </View>

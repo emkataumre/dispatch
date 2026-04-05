@@ -22,7 +22,7 @@ type MockSupabase = {
 function makeJoinMock({
   insertResult = { data: MOCK_JOIN_ROW, error: null },
 }: {
-  insertResult?: { data: typeof MOCK_JOIN_ROW | null; error: { message: string } | null }
+  insertResult?: { data: typeof MOCK_JOIN_ROW | null; error: { message: string; code?: string } | null }
 } = {}): MockSupabase {
   const single = jest.fn().mockResolvedValue(insertResult)
   const select = jest.fn().mockReturnValue({ single })
@@ -36,9 +36,9 @@ function makeJoinMock({
 }
 
 function makeCancelMock({
-  deleteResult = { error: null },
+  deleteResult = { count: 1, error: null },
 }: {
-  deleteResult?: { error: { message: string } | null }
+  deleteResult?: { count: number | null; error: { message: string } | null }
 } = {}): MockSupabase {
   const eqUser = jest.fn().mockResolvedValue(deleteResult)
   const eqId = jest.fn().mockReturnValue({ eq: eqUser })
@@ -82,13 +82,33 @@ describe('joinPresence', () => {
     ).rejects.toThrow('Not authenticated')
   })
 
-  it('throws with Supabase error message when insert fails', async () => {
-    const mock = makeJoinMock({
-      insertResult: { data: null, error: { message: 'unique violation' } },
+  it('throws when getUser returns an auth error even with user present', async () => {
+    const mock = makeJoinMock()
+    mock.auth.getUser.mockResolvedValue({
+      data: { user: { id: MOCK_USER_ID } },
+      error: { message: 'session expired' },
     })
     await expect(
       joinPresence(asClient(mock), { presenceId: MOCK_PRESENCE_ID })
-    ).rejects.toThrow('unique violation')
+    ).rejects.toThrow('Not authenticated')
+  })
+
+  it('throws user-friendly message on unique constraint violation', async () => {
+    const mock = makeJoinMock({
+      insertResult: { data: null, error: { message: 'duplicate key value', code: '23505' } },
+    })
+    await expect(
+      joinPresence(asClient(mock), { presenceId: MOCK_PRESENCE_ID })
+    ).rejects.toThrow('You have already joined this person.')
+  })
+
+  it('throws with Supabase error message when insert fails with other error', async () => {
+    const mock = makeJoinMock({
+      insertResult: { data: null, error: { message: 'insert failed' } },
+    })
+    await expect(
+      joinPresence(asClient(mock), { presenceId: MOCK_PRESENCE_ID })
+    ).rejects.toThrow('insert failed')
   })
 
   it('logs push notification stub', async () => {
@@ -124,13 +144,31 @@ describe('cancelJoin', () => {
     ).rejects.toThrow('Not authenticated')
   })
 
+  it('throws when getUser returns an auth error even with user present', async () => {
+    const mock = makeCancelMock()
+    mock.auth.getUser.mockResolvedValue({
+      data: { user: { id: MOCK_USER_ID } },
+      error: { message: 'session expired' },
+    })
+    await expect(
+      cancelJoin(asClient(mock), { joinId: MOCK_JOIN_ID })
+    ).rejects.toThrow('Not authenticated')
+  })
+
   it('throws with Supabase error message when delete fails', async () => {
     const mock = makeCancelMock({
-      deleteResult: { error: { message: 'delete failed' } },
+      deleteResult: { count: null, error: { message: 'delete failed' } },
     })
     await expect(
       cancelJoin(asClient(mock), { joinId: MOCK_JOIN_ID })
     ).rejects.toThrow('delete failed')
+  })
+
+  it('throws when join is not found (zero rows deleted)', async () => {
+    const mock = makeCancelMock({ deleteResult: { count: 0, error: null } })
+    await expect(
+      cancelJoin(asClient(mock), { joinId: MOCK_JOIN_ID })
+    ).rejects.toThrow('Join not found or already cancelled')
   })
 
   it('logs push notification stub', async () => {

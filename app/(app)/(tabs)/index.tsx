@@ -27,7 +27,7 @@ export default function MapScreen() {
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
   const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
   const { presences, error: presenceError } = useLivePresences()
-  const { join, cancel, getJoinForPresence } = usePresenceJoins()
+  const { join, cancel, getJoinForPresence, error: joinsError } = usePresenceJoins()
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
@@ -41,7 +41,7 @@ export default function MapScreen() {
       .then(({ status }) => {
         if (active) setLocationGranted(status === 'granted')
       })
-      .catch(() => {})
+      .catch((err) => { console.error('Location permission request failed:', err) })
     return () => { active = false }
   }, [])
 
@@ -139,14 +139,16 @@ export default function MapScreen() {
         </Pressable>
       )}
 
-      {(poisError || ratingsError || presenceError) && (
+      {(poisError || ratingsError || presenceError || joinsError) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>
             {poisError
               ? "Couldn't load places — check your connection."
               : ratingsError
               ? 'Ratings unavailable.'
-              : 'Live updates unavailable — check your connection.'}
+              : presenceError
+              ? 'Live updates unavailable — check your connection.'
+              : 'Could not load join status — check your connection.'}
           </Text>
         </View>
       )}

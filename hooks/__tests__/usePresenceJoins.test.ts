@@ -103,13 +103,24 @@ describe('usePresenceJoins', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('sets error state when fetch fails', async () => {
+  it('sets error state when fetch returns a Supabase error', async () => {
     mockEqFn.mockResolvedValue({ data: null, error: { message: 'network error' } })
 
     const result = renderHook(() => usePresenceJoins())
     await flush()
 
     expect(result.current.error).toBe('network error')
+    expect(result.current.joins).toEqual([])
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('sets error state when fetch throws a JS exception', async () => {
+    mockEqFn.mockRejectedValue(new Error('connection refused'))
+
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+
+    expect(result.current.error).toBe('connection refused')
     expect(result.current.joins).toEqual([])
     expect(result.current.loading).toBe(false)
   })
@@ -140,6 +151,35 @@ describe('usePresenceJoins', () => {
     expect(result.current.joins).toEqual([MOCK_JOIN_ROW])
   })
 
+  it('join() deduplicates if same row is returned twice', async () => {
+    mockEqFn.mockResolvedValue({ data: [MOCK_JOIN_ROW], error: null })
+    mockJoinPresence.mockResolvedValue(MOCK_JOIN_ROW)
+
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+
+    await act(async () => {
+      await result.current.join('presence-1')
+    })
+
+    expect(result.current.joins).toHaveLength(1)
+    expect(result.current.joins[0]).toEqual(MOCK_JOIN_ROW)
+  })
+
+  it('join() propagates error without mutating state', async () => {
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+    mockJoinPresence.mockRejectedValue(new Error('unique violation'))
+
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+
+    await expect(
+      act(async () => { await result.current.join('presence-1') })
+    ).rejects.toThrow('unique violation')
+
+    expect(result.current.joins).toEqual([])
+  })
+
   it('cancel() calls cancelJoin and removes from state', async () => {
     mockEqFn.mockResolvedValue({ data: [MOCK_JOIN_ROW, MOCK_JOIN_ROW_2], error: null })
     mockCancelJoin.mockResolvedValue(undefined)
@@ -155,6 +195,20 @@ describe('usePresenceJoins', () => {
 
     expect(mockCancelJoin).toHaveBeenCalled()
     expect(result.current.joins).toEqual([MOCK_JOIN_ROW_2])
+  })
+
+  it('cancel() propagates error without removing from state', async () => {
+    mockEqFn.mockResolvedValue({ data: [MOCK_JOIN_ROW], error: null })
+    mockCancelJoin.mockRejectedValue(new Error('Join not found or already cancelled'))
+
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+
+    await expect(
+      act(async () => { await result.current.cancel('join-1') })
+    ).rejects.toThrow('Join not found or already cancelled')
+
+    expect(result.current.joins).toEqual([MOCK_JOIN_ROW])
   })
 
   it('getJoinForPresence returns matching join', async () => {

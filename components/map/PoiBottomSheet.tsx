@@ -43,7 +43,7 @@ type Props = {
   locationGranted: boolean;
   presences: LivePresenceEntry[];
   getJoinForPresence: (presenceId: string) => PresenceJoin | undefined;
-  onJoinPresence: (presenceId: string) => Promise<PresenceJoin>;
+  onJoinPresence: (presenceId: string) => Promise<PresenceJoin | void>;
   onCancelJoin: (joinId: string) => Promise<void>;
 };
 
@@ -291,7 +291,8 @@ export function PoiBottomSheet({
                         try {
                           await dismissPresence(supabase, { presenceId: activePresence!.id });
                           onDismissBroadcast();
-                        } catch {
+                        } catch (err) {
+                          console.error('dismissPresence failed:', err)
                           Alert.alert('Error', 'Could not end broadcast. Try again.');
                         } finally {
                           setDismissing(false);
@@ -336,8 +337,8 @@ export function PoiBottomSheet({
                       key={p.id}
                       presence={p}
                       existingJoin={getJoinForPresence(p.id)}
-                      onJoin={async (presenceId) => { await onJoinPresence(presenceId) }}
-                      onCancel={async (joinId) => { await onCancelJoin(joinId) }}
+                      onJoin={onJoinPresence}
+                      onCancel={onCancelJoin}
                       isOwnPresence={p.userId === session?.user.id}
                     />
                   ))}

@@ -1,13 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Database } from '@/types/supabase'
+import { Database, Tables } from '@/types/supabase'
 
-export type PresenceJoin = {
-  id: string
-  presence_id: string
-  joiner_user_id: string
-  joined_at: string
-  confirmed: boolean
-}
+// Use the generated type so it stays in sync with the DB schema automatically.
+export type PresenceJoin = Tables<'presence_joins'>
 
 export async function joinPresence(
   supabase: SupabaseClient<Database>,
@@ -19,13 +14,21 @@ export async function joinPresence(
   const { data, error } = await supabase
     .from('presence_joins')
     .insert({ presence_id: presenceId, joiner_user_id: user.id })
-    .select('id, presence_id, joiner_user_id, joined_at, confirmed')
+    .select('*')
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') throw new Error('You have already joined this person.')
+    throw new Error(error.message)
+  }
 
-  // Push notification stub — replace with Expo Push when infra is built in Phase 7
-  console.log(`[Push stub] ${user.id} is joining presence ${presenceId}`)
+  try {
+    // Push notification stub — replace with Expo Push when infra is built in Phase 7
+    console.log(`[Push stub] ${user.id} is joining presence ${presenceId}`)
+  } catch (pushErr) {
+    console.error('[Push stub] Failed to send join notification:', pushErr)
+    // Join succeeded — push failure is non-fatal
+  }
 
   return data as PresenceJoin
 }
@@ -37,14 +40,20 @@ export async function cancelJoin(
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) throw new Error('Not authenticated')
 
-  const { error } = await supabase
+  const { count, error } = await supabase
     .from('presence_joins')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', joinId)
     .eq('joiner_user_id', user.id)
 
   if (error) throw new Error(error.message)
+  if ((count ?? 0) === 0) throw new Error('Join not found or already cancelled')
 
-  // Push notification stub — replace with Expo Push when infra is built in Phase 7
-  console.log(`[Push stub] ${user.id} cancelled join ${joinId}`)
+  try {
+    // Push notification stub — replace with Expo Push when infra is built in Phase 7
+    console.log(`[Push stub] ${user.id} cancelled join ${joinId}`)
+  } catch (pushErr) {
+    console.error('[Push stub] Failed to send cancel notification:', pushErr)
+    // Cancel succeeded — push failure is non-fatal
+  }
 }

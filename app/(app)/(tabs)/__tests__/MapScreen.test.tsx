@@ -109,6 +109,7 @@ import Mapbox from '@rnmapbox/maps'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
 import { useLivePresences } from '@/hooks/useLivePresences'
+import { usePresenceJoins } from '@/hooks/usePresenceJoins'
 import { PoiLayer } from '@/components/map/PoiLayer'
 import { PresenceLayer } from '@/components/map/PresenceLayer'
 import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
@@ -216,6 +217,49 @@ describe('MapScreen', () => {
         String(n.props.children).includes("Couldn't load places")
       )
     expect(hasMessage).toBe(true)
+  })
+
+  it('error banner shows join status message when only usePresenceJoins errors', async () => {
+    ;(usePresenceJoins as jest.Mock).mockReturnValue({
+      joins: [],
+      loading: false,
+      error: 'joins error',
+      join: jest.fn(),
+      cancel: jest.fn(),
+      getJoinForPresence: jest.fn(() => undefined),
+    })
+    let root: ReturnType<typeof create>
+
+    await act(async () => { root = create(<MapScreen />) })
+
+    const hasMessage = root!.root
+      .findAllByType(Text)
+      .some((n: ReactTestInstance) =>
+        String(n.props.children).includes('Could not load join status')
+      )
+    expect(hasMessage).toBe(true)
+  })
+
+  it('passes join, cancel, and getJoinForPresence from usePresenceJoins to PoiBottomSheet', async () => {
+    const mockJoin = jest.fn()
+    const mockCancel = jest.fn()
+    const mockGetJoin = jest.fn(() => undefined)
+    ;(usePresenceJoins as jest.Mock).mockReturnValue({
+      joins: [],
+      loading: false,
+      error: null,
+      join: mockJoin,
+      cancel: mockCancel,
+      getJoinForPresence: mockGetJoin,
+    })
+
+    let root: ReturnType<typeof create>
+    await act(async () => { root = create(<MapScreen />) })
+
+    const sheet = root!.root.findByType(PoiBottomSheet)
+    expect(sheet.props.onJoinPresence).toBe(mockJoin)
+    expect(sheet.props.onCancelJoin).toBe(mockCancel)
+    expect(sheet.props.getJoinForPresence).toBe(mockGetJoin)
   })
 
   it('error banner shows ratings message when only useAllPoiRatings errors', async () => {

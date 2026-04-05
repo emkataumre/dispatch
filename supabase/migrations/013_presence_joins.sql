@@ -1,5 +1,6 @@
 -- presence_joins: records a user's intent to join a live presence broadcast.
--- The `confirmed` flag is set to true in Phase 5 when the joiner's geofence arrival is detected.
+-- The `confirmed` flag is set to true in Phase 5 (Passive Check-In & Geofencing) when the
+-- joiner's geofence arrival is detected.
 
 CREATE TABLE public.presence_joins (
   id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,9 +36,10 @@ CREATE POLICY "Users can insert own join"
   TO authenticated
   WITH CHECK (auth.uid() = joiner_user_id);
 
--- Broadcaster can confirm arrival (used in Phase 5 geofence flow).
+-- Broadcaster can confirm arrival (used in Phase 5 — Passive Check-In & Geofencing).
 -- WITH CHECK mirrors USING so the broadcaster cannot reassign presence_id
 -- or joiner_user_id to arbitrary values.
+-- Note: allows update to any column, not just `confirmed` — tighten to confirmed-only in Phase 5.
 CREATE POLICY "Broadcaster can confirm join"
   ON public.presence_joins FOR UPDATE
   TO authenticated
@@ -56,11 +58,11 @@ CREATE POLICY "Broadcaster can confirm join"
     )
   );
 
--- Joiner can withdraw their join intent before it is confirmed
+-- Joiner can withdraw their own join intent at any time
 CREATE POLICY "Joiner can delete own join"
   ON public.presence_joins FOR DELETE
   TO authenticated
   USING (auth.uid() = joiner_user_id);
 
--- Enable Realtime for presence_joins so Phase 5 can subscribe to confirmation events
+-- Enable Realtime so Phase 5 (Passive Check-In & Geofencing) can subscribe to confirmation events
 ALTER PUBLICATION supabase_realtime ADD TABLE public.presence_joins;

@@ -18,28 +18,46 @@ export function usePresenceJoins() {
     }
 
     let active = true
+    setError(null)
+    setLoading(true)
 
-    supabase
-      .from('presence_joins')
-      .select('id, presence_id, joiner_user_id, joined_at, confirmed')
-      .eq('joiner_user_id', userId)
-      .then(({ data, error: fetchError }) => {
+    async function load() {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('presence_joins')
+          .select('id, presence_id, joiner_user_id, joined_at, confirmed')
+          .eq('joiner_user_id', userId!)
         if (!active) return
         if (fetchError) {
           console.error('usePresenceJoins:', fetchError.message)
           setError(fetchError.message)
         } else {
+          // Note: joins for dismissed presences (dismissed_at set) are not filtered here
+          // because soft-deleted live_presence rows persist. Stale joins are harmless —
+          // dismissed presences never render PresenceCards so the stale join is never acted on.
+          // TODO (Phase 5): consider a periodic cleanup or server-side filter.
           setJoins((data ?? []) as PresenceJoin[])
         }
-        setLoading(false)
-      })
+      } catch (err) {
+        if (!active) return
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        console.error('usePresenceJoins:', message)
+        setError(message)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
 
+    load()
     return () => { active = false }
   }, [session?.user.id])
 
   const join = useCallback(async (presenceId: string): Promise<PresenceJoin> => {
     const newJoin = await joinPresence(supabase, { presenceId })
-    setJoins((prev) => [...prev, newJoin])
+    setJoins((prev) => {
+      if (prev.some((j) => j.id === newJoin.id)) return prev
+      return [...prev, newJoin]
+    })
     return newJoin
   }, [])
 

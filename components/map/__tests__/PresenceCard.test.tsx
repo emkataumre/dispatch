@@ -1,5 +1,5 @@
 import React from 'react'
-import { ActivityIndicator, TouchableOpacity } from 'react-native'
+import { ActivityIndicator, Alert, TouchableOpacity } from 'react-native'
 import { act, create, ReactTestInstance } from 'react-test-renderer'
 import { PresenceCard } from '../PresenceCard'
 import { LivePresenceEntry } from '@/hooks/useLivePresences'
@@ -190,6 +190,89 @@ describe('PresenceCard', () => {
 
     // Clean up
     await act(async () => { resolveJoin() })
+  })
+
+  it('does not render message text when message is null', () => {
+    const presence: LivePresenceEntry = { ...MOCK_PRESENCE, message: null }
+
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={presence}
+          existingJoin={undefined}
+          onJoin={jest.fn()}
+          onCancel={jest.fn()}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const texts = findTexts(root!)
+    // displayName is still shown, but no message line
+    expect(texts).toContain('Jane Doe')
+    expect(texts.filter((t) => t === 'grabbing coffee').length).toBe(0)
+  })
+
+  it('shows Alert and resets busy when onJoin rejects', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const onJoin = jest.fn().mockRejectedValue(new Error('network failure'))
+
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={MOCK_PRESENCE}
+          existingJoin={undefined}
+          onJoin={onJoin}
+          onCancel={jest.fn()}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const touchables = root!.root.findAllByType(TouchableOpacity)
+    const joinButton = touchables.find((n) => {
+      const texts = n.findAll((c: ReactTestInstance) => (c.type as string) === 'Text')
+      return texts.some((t) => String(t.props.children).includes('Join'))
+    })
+
+    await act(async () => { joinButton!.props.onPress() })
+
+    expect(alertSpy).toHaveBeenCalledWith('Error', expect.any(String))
+    // busy resets to false — ActivityIndicator should be gone
+    expect(root!.root.findAllByType(ActivityIndicator).length).toBe(0)
+
+    alertSpy.mockRestore()
+  })
+
+  it('shows already-joined message when error includes "already joined"', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const onJoin = jest.fn().mockRejectedValue(new Error('You have already joined this person.'))
+
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={MOCK_PRESENCE}
+          existingJoin={undefined}
+          onJoin={onJoin}
+          onCancel={jest.fn()}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const touchables = root!.root.findAllByType(TouchableOpacity)
+    const joinButton = touchables.find((n) => {
+      const texts = n.findAll((c: ReactTestInstance) => (c.type as string) === 'Text')
+      return texts.some((t) => String(t.props.children).includes('Join'))
+    })
+
+    await act(async () => { joinButton!.props.onPress() })
+
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'You have already joined this person.')
+    alertSpy.mockRestore()
   })
 
   it('extracts first name for Join button label', () => {
