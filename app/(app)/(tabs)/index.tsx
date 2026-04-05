@@ -109,6 +109,11 @@ export default function MapScreen() {
             centerCoordinate: [12.5683, 55.6761],
             zoomLevel: 13,
           }}
+          maxBounds={{
+            ne: [13.15, 55.85],
+            sw: [11.85, 55.45],
+          }}
+          minZoomLevel={9}
         />
         <PoiLayer pois={filteredPois} onPoiPress={handlePoiPress} />
         <PresenceLayer presences={presences} pois={pois} onPoiPress={handlePoiPress} />
