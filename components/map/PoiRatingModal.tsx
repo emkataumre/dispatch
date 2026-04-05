@@ -72,7 +72,7 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
     >
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
       >
         <Pressable style={styles.backdrop} onPress={() => setVisible(false)} />
 
