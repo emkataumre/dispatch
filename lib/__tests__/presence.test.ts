@@ -74,7 +74,7 @@ describe('broadcastPresence', () => {
     // update is called on live_presence to dismiss old broadcast
     expect(mock.from).toHaveBeenCalledWith('live_presence')
     const fromCalls = mock.from.mock.results
-    const hasUpdate = fromCalls.some((r: { value: { update?: jest.Mock } }) => r.value.update)
+    const hasUpdate = fromCalls.some((r) => r.value?.update)
     expect(hasUpdate).toBe(true)
 
     // Assert update was called with a dismissed_at ISO string
