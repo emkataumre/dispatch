@@ -24,7 +24,7 @@ export async function joinPresence(
 
   try {
     // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log(`[Push stub] ${user.id} is joining presence ${presenceId}`)
+    console.log('[Push stub] join notification queued')
   } catch (pushErr) {
     console.error('[Push stub] Failed to send join notification:', pushErr)
     // Join succeeded — push failure is non-fatal
@@ -51,7 +51,7 @@ export async function cancelJoin(
 
   try {
     // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log(`[Push stub] ${user.id} cancelled join ${joinId}`)
+    console.log('[Push stub] cancel notification queued')
   } catch (pushErr) {
     console.error('[Push stub] Failed to send cancel notification:', pushErr)
     // Cancel succeeded — push failure is non-fatal
