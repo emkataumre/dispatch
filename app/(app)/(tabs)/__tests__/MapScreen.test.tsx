@@ -61,6 +61,23 @@ jest.mock('@/hooks/useAllPoiRatings', () => ({
   })),
 }))
 
+// Fix 5: use real useState so setBroadcast/clearBroadcast actually update activePresence
+jest.mock('@/hooks/useActivePresence', () => {
+  const { useState } = require('react')
+  return {
+    useActivePresence: () => {
+      const [activePresence, setActivePresence] = useState(null)
+      return {
+        activePresence,
+        loading: false,
+        error: null,
+        setBroadcast: setActivePresence,
+        clearBroadcast: () => setActivePresence(null),
+      }
+    },
+  }
+})
+
 // ---------------------------------------------------------------------------
 // Child component mocks — render null so only MapScreen's own nodes are visible
 // ---------------------------------------------------------------------------
@@ -256,5 +273,32 @@ describe('MapScreen', () => {
     await act(async () => { root = create(<MapScreen />) })
 
     expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(1)
+  })
+
+  // Fix 5: verify setBroadcast/clearBroadcast wiring through PoiBottomSheet props
+  it('passes setBroadcast and clearBroadcast to PoiBottomSheet and they update activePresence', () => {
+    const mockPresence = {
+      id: 'presence-1',
+      poi_id: 'poi-1',
+      message: 'here now',
+      visible_to: 'friends' as const,
+    }
+
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<MapScreen />) })
+
+    const sheet = root!.root.findByType(PoiBottomSheet)
+
+    // onBroadcast and onDismissBroadcast props must be functions
+    expect(typeof sheet.props.onBroadcast).toBe('function')
+    expect(typeof sheet.props.onDismissBroadcast).toBe('function')
+
+    // Calling onBroadcast sets activePresence on the sheet
+    act(() => { sheet.props.onBroadcast(mockPresence) })
+    expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toEqual(mockPresence)
+
+    // Calling onDismissBroadcast clears it
+    act(() => { sheet.props.onDismissBroadcast() })
+    expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toBeNull()
   })
 })

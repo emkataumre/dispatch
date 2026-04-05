@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
+import { useActivePresence } from '@/hooks/useActivePresence'
 import { PoiLayer } from '@/components/map/PoiLayer'
 import { CategoryFilterBar } from '@/components/map/CategoryFilterBar'
 import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
@@ -21,6 +22,7 @@ const ALL_ACTIVE = Object.fromEntries(
 export default function MapScreen() {
   const { pois, error: poisError } = usePois()
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
+  const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
@@ -139,7 +141,14 @@ export default function MapScreen() {
         </View>
       )}
 
-      <PoiBottomSheet poi={selectedPoi} onClose={handleSheetClose} />
+      <PoiBottomSheet
+        poi={selectedPoi}
+        onClose={handleSheetClose}
+        activePresence={activePresence}
+        onBroadcast={setBroadcast}
+        onDismissBroadcast={clearBroadcast}
+        locationGranted={locationGranted}
+      />
     </View>
   )
 }
