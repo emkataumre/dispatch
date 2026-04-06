@@ -27,7 +27,7 @@ export default function MapScreen() {
   const { pois, error: poisError } = usePois()
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
   const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
-  const { friends } = useFriendships()
+  const { friends, error: friendshipsError } = useFriendships()
   const friendIds = useMemo(() => friends.map((f) => f.userId), [friends])
   const { presences, error: presenceError } = useLivePresences(friendIds)
   const { join, cancel, getJoinForPresence, error: joinsError } = usePresenceJoins()
@@ -96,8 +96,8 @@ export default function MapScreen() {
         zoomLevel: 15,
         animationDuration: 800,
       })
-    } catch {
-      // Location unavailable (e.g. emulator without mock GPS) — do nothing
+    } catch (err) {
+      console.error('handleReturnToLocation: failed to get current position', err)
     }
   }, [])
 
@@ -147,7 +147,7 @@ export default function MapScreen() {
         </Pressable>
       )}
 
-      {(poisError || ratingsError || presenceError || joinsError) && (
+      {(poisError || ratingsError || presenceError || friendshipsError || joinsError) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>
             {poisError
@@ -156,6 +156,8 @@ export default function MapScreen() {
               ? 'Ratings unavailable.'
               : presenceError
               ? 'Live updates unavailable — check your connection.'
+              : friendshipsError
+              ? 'Friend list unavailable — some presences may be hidden.'
               : 'Could not load join status — check your connection.'}
           </Text>
         </View>
