@@ -7,6 +7,7 @@ import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
 import { useActivePresence } from '@/hooks/useActivePresence'
+import { useFriendships } from '@/hooks/useFriendships'
 import { useLivePresences } from '@/hooks/useLivePresences'
 import { usePresenceJoins } from '@/hooks/usePresenceJoins'
 import { PoiLayer } from '@/components/map/PoiLayer'
@@ -26,7 +27,9 @@ export default function MapScreen() {
   const { pois, error: poisError } = usePois()
   const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
   const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
-  const { presences, error: presenceError } = useLivePresences()
+  const { friends } = useFriendships()
+  const friendIds = useMemo(() => friends.map((f) => f.userId), [friends])
+  const { presences, error: presenceError } = useLivePresences(friendIds)
   const { join, cancel, getJoinForPresence, error: joinsError } = usePresenceJoins()
   const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)

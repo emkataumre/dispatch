@@ -16,13 +16,17 @@ type ProfileData = {
   avatarUrl: string | null
 }
 
-export function useLivePresences() {
+export function useLivePresences(friendIds: string[]) {
   const { session } = useAuth()
   const [presences, setPresences] = useState<LivePresenceEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const profileCache = useRef<Map<string, ProfileData>>(new Map())
   const channelId = useRef(`live-presence-changes-${Date.now()}-${Math.random()}`)
+
+  // Stable string key for the dependency array — avoids re-running the effect
+  // on every render when the caller passes a new array reference with the same IDs.
+  const friendIdsKey = friendIds.join(',')
 
   useEffect(() => {
     const userId = session?.user.id
@@ -33,7 +37,7 @@ export function useLivePresences() {
     }
 
     let active = true
-    // Tracks whether the channel has ever successfully subscribed.
+    // Tracks whether any channel has ever successfully subscribed.
     // Used to distinguish the initial connect (don't refetch — initial load is in flight)
     // from a reconnect after a drop or CHANNEL_ERROR (refetch to catch missed events).
     let everSubscribed = false
@@ -137,36 +141,67 @@ export function useLivePresences() {
       }
     }
 
-    const channel = supabase
-      .channel(channelId.current)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_presence' }, handleInsert)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_presence' }, handleUpdate)
-      .subscribe((status: string, err?: Error) => {
-        if (!active) return
-        if (status === 'SUBSCRIBED') {
-          setError(null)
-          if (everSubscribed) {
-            // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events
-            fetchPresences()
-          } else {
-            everSubscribed = true
-          }
-        } else if (status === 'TIMED_OUT') {
-          console.error('useLivePresences: Realtime subscription timed out')
-          setError('Live updates timed out — pull to refresh.')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('useLivePresences: Realtime channel error', err?.message ?? '(no details)')
-          setError('Live updates unavailable — pull to refresh.')
-        } else if (status === 'CLOSED') {
-          console.error('useLivePresences: Realtime channel closed unexpectedly')
+    const handleStatus = (status: string, err?: Error) => {
+      if (!active) return
+      if (status === 'SUBSCRIBED') {
+        setError(null)
+        if (everSubscribed) {
+          // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events
+          fetchPresences()
+        } else {
+          everSubscribed = true
         }
-      })
+      } else if (status === 'TIMED_OUT') {
+        console.error('useLivePresences: Realtime subscription timed out')
+        setError('Live updates timed out — pull to refresh.')
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('useLivePresences: Realtime channel error', err?.message ?? '(no details)')
+        setError('Live updates unavailable — pull to refresh.')
+      } else if (status === 'CLOSED') {
+        console.error('useLivePresences: Realtime channel closed unexpectedly')
+      }
+    }
+
+    // Channel 1: community broadcasts — always active, no friend list needed.
+    const communityChannel = supabase
+      .channel(`${channelId.current}-community`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'live_presence',
+        filter: 'visible_to=eq.community',
+      }, handleInsert)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'live_presence',
+        filter: 'visible_to=eq.community',
+      }, handleUpdate)
+      .subscribe(handleStatus)
+
+    // Channel 2: friends-only broadcasts — only created when the caller has accepted friends.
+    // Filtered to visible_to==='friends' in the handler to avoid double-processing a friend's
+    // community broadcast (which arrives via the community channel above).
+    const friendsChannel = friendIds.length > 0
+      ? supabase
+          .channel(`${channelId.current}-friends`)
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'live_presence',
+            filter: `user_id=in.(${friendIdsKey})`,
+          }, (payload) => {
+            if ((payload.new as Record<string, unknown>).visible_to === 'friends') handleInsert(payload)
+          })
+          .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'live_presence',
+            filter: `user_id=in.(${friendIdsKey})`,
+          }, (payload) => {
+            if ((payload.new as Record<string, unknown>).visible_to === 'friends') handleUpdate(payload)
+          })
+          .subscribe(handleStatus)
+      : null
 
     return () => {
       active = false
-      supabase.removeChannel(channel)
+      supabase.removeChannel(communityChannel)
+      if (friendsChannel) supabase.removeChannel(friendsChannel)
     }
-  }, [session?.user.id])
+  }, [session?.user.id, friendIdsKey])
 
   return { presences, loading, error }
 }
