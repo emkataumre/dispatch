@@ -79,22 +79,21 @@ export function useLivePresences() {
         const rowUserId = row.user_id as string
         if (rowUserId === userId || !!row.dismissed_at) return
 
-        let profile = profileCache.current.get(rowUserId)
-        if (!profile) {
-          const { data, error: profileError } = await supabase
-            .from('profiles')
-            .select('display_name, avatar_url')
-            .eq('id', rowUserId)
-            .single()
-          if (!active) return
-          if (profileError) {
-            console.error(`useLivePresences: Failed to fetch profile for ${rowUserId}:`, profileError.message)
-          }
-          profile = data
-            ? { displayName: data.display_name, avatarUrl: data.avatar_url }
-            : { displayName: 'Unknown', avatarUrl: null }
-          profileCache.current.set(rowUserId, profile)
+        // Always fetch fresh profile data on INSERT — the cache may hold a stale
+        // avatar_url if the user updated their profile picture since it was cached.
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', rowUserId)
+          .single()
+        if (!active) return
+        if (profileError) {
+          console.error(`useLivePresences: Failed to fetch profile for ${rowUserId}:`, profileError.message)
         }
+        const profile: ProfileData = data
+          ? { displayName: data.display_name, avatarUrl: data.avatar_url }
+          : profileCache.current.get(rowUserId) ?? { displayName: 'Unknown', avatarUrl: null }
+        profileCache.current.set(rowUserId, profile)
 
         const entry: LivePresenceEntry = {
           id: row.id as string,

@@ -162,24 +162,29 @@ describe('useLivePresences', () => {
     expect(mockNeqFn).toHaveBeenCalledWith('user_id', 'user-1')
   })
 
-  it('adds a presence on INSERT with profile cache hit', async () => {
-    // Seed the cache via initial fetch
+  it('adds a presence on INSERT and always fetches fresh profile', async () => {
+    // Seed via initial fetch (user-2 is cached with "Jane Doe")
     mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null })
+    mockSingleFn.mockResolvedValue({
+      data: { display_name: 'Jane Doe Updated', avatar_url: 'https://example.com/new.jpg' },
+      error: null,
+    })
     const result = renderHook(() => useLivePresences())
     await flush()
 
     const { insertHandler } = getCapturedHandlers()
     expect(insertHandler).toBeDefined()
 
-    // Fire INSERT for same user (user-2 is now cached)
+    // Fire INSERT for same user — should fetch fresh profile, not use cache
     await act(async () => {
       await insertHandler!(makeInsertPayload({ user_id: 'user-2', id: 'presence-3' }))
     })
 
     expect(result.current.presences).toHaveLength(2)
     expect(result.current.presences[1].id).toBe('presence-3')
-    expect(result.current.presences[1].displayName).toBe('Jane Doe') // from cache
-    expect(mockSingleFn).not.toHaveBeenCalled() // no profile fetch needed
+    expect(result.current.presences[1].displayName).toBe('Jane Doe Updated')
+    expect(result.current.presences[1].avatarUrl).toBe('https://example.com/new.jpg')
+    expect(mockSingleFn).toHaveBeenCalledTimes(1) // always fetches fresh
   })
 
   it('fetches profile on INSERT when user is not in cache (cache miss)', async () => {
