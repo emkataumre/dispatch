@@ -25,6 +25,7 @@ import {
   BroadcastModalHandle,
 } from "@/components/map/BroadcastModal";
 import { PresenceCard } from "@/components/map/PresenceCard";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useProximity } from "@/hooks/useProximity";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
@@ -68,20 +69,6 @@ function Stars({ rating, size = 16 }: { rating: number; size?: number }) {
   );
 }
 
-function AuthorAvatar({ name }: { name: string }) {
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-  return (
-    <View style={styles.avatarCircle}>
-      <Text style={styles.avatarInitials}>{initials}</Text>
-    </View>
-  );
-}
-
 function CommentRow({ item }: { item: RatingComment }) {
   const date = new Date(item.created_at).toLocaleDateString(undefined, {
     month: "short",
@@ -90,7 +77,12 @@ function CommentRow({ item }: { item: RatingComment }) {
   return (
     <View style={styles.commentRow}>
       <View style={styles.commentLeft}>
-        <AuthorAvatar name={item.display_name} />
+        <UserAvatar
+          displayName={item.display_name}
+          avatarUrl={item.avatar_url}
+          size={34}
+          borderWidth={0}
+        />
       </View>
       <View style={styles.commentBody}>
         <View style={styles.commentHeader}>
@@ -608,20 +600,6 @@ const styles = StyleSheet.create({
   },
   commentLeft: {
     paddingTop: 1,
-  },
-  avatarCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#EDECEA",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarInitials: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#666",
-    letterSpacing: 0.3,
   },
   commentBody: {
     flex: 1,

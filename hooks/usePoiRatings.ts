@@ -10,6 +10,7 @@ export type RatingComment = {
   created_at: string
   user_id: string
   display_name: string
+  avatar_url: string | null
 }
 
 export type MyRating = {
@@ -18,10 +19,12 @@ export type MyRating = {
   comment: string | null
 }
 
-function getDisplayName(profiles: unknown): string {
-  if (!profiles) return 'Unknown'
-  if (Array.isArray(profiles)) return (profiles[0] as { display_name?: string })?.display_name ?? 'Unknown'
-  return (profiles as { display_name?: string }).display_name ?? 'Unknown'
+type ProfileJoin = { display_name?: string; avatar_url?: string | null }
+
+function getProfileField(profiles: unknown): ProfileJoin {
+  if (!profiles) return {}
+  if (Array.isArray(profiles)) return (profiles[0] as ProfileJoin) ?? {}
+  return profiles as ProfileJoin
 }
 
 export function usePoiRatings(poiId: string | undefined) {
@@ -42,11 +45,12 @@ export function usePoiRatings(poiId: string | undefined) {
     setError(null)
 
     // Relies on the "Profiles viewable by authenticated users" RLS SELECT policy
-    // allowing cross-user reads of display_name. If that policy is ever tightened,
-    // profiles will silently return null and display_name will fall back to 'Unknown'.
+    // allowing cross-user reads of display_name and avatar_url. If that policy is ever
+    // tightened, the profiles join will silently return null and both fields will fall
+    // back to defaults.
     const { data, error } = await supabase
       .from('poi_ratings')
-      .select('id, rating, comment, created_at, user_id, profiles(display_name)')
+      .select('id, rating, comment, created_at, user_id, profiles(display_name, avatar_url)')
       .eq('poi_id', poiId)
       .order('created_at', { ascending: false })
 
@@ -68,14 +72,18 @@ export function usePoiRatings(poiId: string | undefined) {
       rows
         .filter((r) => r.comment !== null && r.created_at !== null)
         .slice(0, 5)
-        .map((r) => ({
-          id: r.id,
-          rating: r.rating,
-          comment: r.comment as string,
-          created_at: r.created_at as string,
-          user_id: r.user_id,
-          display_name: getDisplayName(r.profiles),
-        }))
+        .map((r) => {
+          const profile = getProfileField(r.profiles)
+          return {
+            id: r.id,
+            rating: r.rating,
+            comment: r.comment as string,
+            created_at: r.created_at as string,
+            user_id: r.user_id,
+            display_name: profile.display_name ?? 'Unknown',
+            avatar_url: profile.avatar_url ?? null,
+          }
+        })
     )
 
     const mine = userId ? (rows.find((r) => r.user_id === userId) ?? null) : null
