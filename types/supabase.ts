@@ -39,6 +39,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: Database["public"]["Enums"]["friendship_status"]
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status: Database["public"]["Enums"]["friendship_status"]
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friendships_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_presence: {
         Row: {
           created_at: string
@@ -78,45 +117,6 @@ export type Database = {
           {
             foreignKeyName: "live_presence_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      presence_joins: {
-        Row: {
-          confirmed: boolean
-          id: string
-          joined_at: string
-          joiner_user_id: string
-          presence_id: string
-        }
-        Insert: {
-          confirmed?: boolean
-          id?: string
-          joined_at?: string
-          joiner_user_id: string
-          presence_id: string
-        }
-        Update: {
-          confirmed?: boolean
-          id?: string
-          joined_at?: string
-          joiner_user_id?: string
-          presence_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "presence_joins_presence_id_fkey"
-            columns: ["presence_id"]
-            isOneToOne: false
-            referencedRelation: "live_presence"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "presence_joins_joiner_user_id_fkey"
-            columns: ["joiner_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -206,6 +206,45 @@ export type Database = {
           },
         ]
       }
+      presence_joins: {
+        Row: {
+          confirmed: boolean
+          id: string
+          joined_at: string
+          joiner_user_id: string
+          presence_id: string
+        }
+        Insert: {
+          confirmed?: boolean
+          id?: string
+          joined_at?: string
+          joiner_user_id: string
+          presence_id: string
+        }
+        Update: {
+          confirmed?: boolean
+          id?: string
+          joined_at?: string
+          joiner_user_id?: string
+          presence_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presence_joins_joiner_user_id_fkey"
+            columns: ["joiner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presence_joins_presence_id_fkey"
+            columns: ["presence_id"]
+            isOneToOne: false
+            referencedRelation: "live_presence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -285,6 +324,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      friendship_status: "pending" | "accepted"
       poi_category:
         | "food_drink"
         | "nightlife"
@@ -422,6 +462,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      friendship_status: ["pending", "accepted"],
       poi_category: [
         "food_drink",
         "nightlife",

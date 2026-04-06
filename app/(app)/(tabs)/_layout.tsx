@@ -1,7 +1,10 @@
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { usePendingRequestCount } from '@/hooks/usePendingRequestCount'
 
 export default function TabLayout() {
+  const pendingCount = usePendingRequestCount()
+
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: '#0066FF' }}>
       <Tabs.Screen
@@ -23,6 +26,7 @@ export default function TabLayout() {
         name="friends"
         options={{
           title: 'Friends',
+          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
           tabBarIcon: ({ color }) => <Ionicons name="people" size={24} color={color} />,
         }}
       />
