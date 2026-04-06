@@ -12,33 +12,47 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: string
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status: string
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friendships_addressee_id_fkey"
+            columns: ["addressee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_presence: {
         Row: {
           created_at: string
@@ -78,45 +92,6 @@ export type Database = {
           {
             foreignKeyName: "live_presence_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      presence_joins: {
-        Row: {
-          confirmed: boolean
-          id: string
-          joined_at: string
-          joiner_user_id: string
-          presence_id: string
-        }
-        Insert: {
-          confirmed?: boolean
-          id?: string
-          joined_at?: string
-          joiner_user_id: string
-          presence_id: string
-        }
-        Update: {
-          confirmed?: boolean
-          id?: string
-          joined_at?: string
-          joiner_user_id?: string
-          presence_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "presence_joins_presence_id_fkey"
-            columns: ["presence_id"]
-            isOneToOne: false
-            referencedRelation: "live_presence"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "presence_joins_joiner_user_id_fkey"
-            columns: ["joiner_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -202,6 +177,45 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      presence_joins: {
+        Row: {
+          confirmed: boolean
+          id: string
+          joined_at: string
+          joiner_user_id: string
+          presence_id: string
+        }
+        Insert: {
+          confirmed?: boolean
+          id?: string
+          joined_at?: string
+          joiner_user_id: string
+          presence_id: string
+        }
+        Update: {
+          confirmed?: boolean
+          id?: string
+          joined_at?: string
+          joiner_user_id?: string
+          presence_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presence_joins_joiner_user_id_fkey"
+            columns: ["joiner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presence_joins_presence_id_fkey"
+            columns: ["presence_id"]
+            isOneToOne: false
+            referencedRelation: "live_presence"
             referencedColumns: ["id"]
           },
         ]
@@ -417,9 +431,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       poi_category: [
