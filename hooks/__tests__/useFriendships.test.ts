@@ -156,7 +156,7 @@ describe('useFriendships', () => {
 
   it('sendRequest: optimistically adds to outgoingRequestMap and confirms on success', async () => {
     mockFetchFriendships.mockResolvedValue([])
-    mockLibSendRequest.mockResolvedValue({ id: 'fs-new', ...PENDING_SENT_ROW })
+    mockLibSendRequest.mockResolvedValue({ ...PENDING_SENT_ROW, id: 'fs-new' })
 
     const result = renderHook(() => useFriendships())
     await flush()

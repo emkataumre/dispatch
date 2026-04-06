@@ -5,14 +5,6 @@ import { useFriendships } from '@/hooks/useFriendships'
 import { UserSearchResult } from '@/components/friends/UserSearchResult'
 import { FriendRow } from '@/components/friends/FriendRow'
 import { IncomingRequestsSection } from '@/components/friends/IncomingRequestsSection'
-import { FriendshipStatus } from '@/lib/friendships'
-
-function getStatus(userId: string, friendships: ReturnType<typeof useFriendships>): FriendshipStatus {
-  if (friendships.friends.some((f) => f.userId === userId)) return 'accepted'
-  if (friendships.outgoingRequestMap.has(userId)) return 'pending_sent'
-  if (friendships.incomingRequests.some((r) => r.requesterId === userId)) return 'pending_received'
-  return 'none'
-}
 
 export default function FriendsScreen() {
   const [query, setQuery] = useState('')
@@ -99,22 +91,21 @@ export default function FriendsScreen() {
               data={search.results}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => {
-                const status = getStatus(item.id, friendships)
-                const friendshipId = friendships.outgoingRequestMap.get(item.id) ??
-                  friendships.incomingRequests.find((r) => r.requesterId === item.id)?.friendshipId ??
-                  friendships.friends.find((f) => f.userId === item.id)?.friendshipId ??
-                  null
+                const status = friendships.getStatusForUser(item.id)
+                const friendshipId = friendships.getFriendshipId(item.id)
                 return (
                   <UserSearchResult
                     user={item}
                     status={status}
                     onSendRequest={() => friendships.sendRequest(item.id)}
-                    onCancelRequest={() =>
-                      friendships.cancelRequest(friendshipId ?? '')
-                    }
-                    onAcceptRequest={() =>
-                      friendships.acceptRequest(friendshipId ?? '')
-                    }
+                    onCancelRequest={() => {
+                      if (!friendshipId) return Promise.resolve()
+                      return friendships.cancelRequest(friendshipId)
+                    }}
+                    onAcceptRequest={() => {
+                      if (!friendshipId) return Promise.resolve()
+                      return friendships.acceptRequest(friendshipId)
+                    }}
                   />
                 )
               }}

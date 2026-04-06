@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -13,7 +14,7 @@ import { FriendEntry } from '@/hooks/useFriendships'
 
 interface Props {
   entry: FriendEntry
-  onUnfriend: () => void
+  onUnfriend: () => Promise<void>
 }
 
 export function FriendRow({ entry, onUnfriend }: Props) {
@@ -23,8 +24,11 @@ export function FriendRow({ entry, onUnfriend }: Props) {
   const handleConfirmUnfriend = async () => {
     setBusy(true)
     try {
-      onUnfriend()
+      await onUnfriend()
       setModalVisible(false)
+    } catch (err) {
+      console.error('FriendRow unfriend:', err)
+      Alert.alert('Error', 'Could not unfriend. Try again.')
     } finally {
       setBusy(false)
     }

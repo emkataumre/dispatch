@@ -1,5 +1,5 @@
 import React from 'react'
-import { TouchableOpacity, Alert } from 'react-native'
+import { TouchableOpacity } from 'react-native'
 import { act, create, ReactTestInstance } from 'react-test-renderer'
 import { UserSearchResult } from '../UserSearchResult'
 
@@ -60,45 +60,38 @@ describe('UserSearchResult', () => {
     expect(findButtonWithLabel(root!, 'Pending')).toBeDefined()
   })
 
-  it('shows Alert with cancel option when Pending is pressed', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+  it('pressing "Pending" opens the in-app cancel confirmation modal', () => {
     const props = makeProps('pending_sent')
-
     let root: ReturnType<typeof create>
     act(() => { root = create(<UserSearchResult {...props} />) })
 
     act(() => { findButtonWithLabel(root!, 'Pending')!.props.onPress() })
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Cancel request?',
-      '',
-      expect.arrayContaining([
-        expect.objectContaining({ style: 'destructive' }),
-        expect.objectContaining({ style: 'cancel' }),
-      ])
-    )
-    alertSpy.mockRestore()
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Cancel request?')).toBe(true)
   })
 
-  it('calls onCancelRequest when cancel is confirmed in the Alert', async () => {
+  it('calls onCancelRequest when "Cancel request" button in modal is pressed', async () => {
     const props = makeProps('pending_sent')
-    let capturedDestructiveOnPress: (() => void) | undefined
-
-    jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-      const destructive = (buttons as Array<{ style: string; onPress?: () => void }>)
-        .find((b) => b.style === 'destructive')
-      capturedDestructiveOnPress = destructive?.onPress
-    })
-
     let root: ReturnType<typeof create>
     act(() => { root = create(<UserSearchResult {...props} />) })
 
     act(() => { findButtonWithLabel(root!, 'Pending')!.props.onPress() })
 
-    await act(async () => { capturedDestructiveOnPress?.() })
+    await act(async () => { findButtonWithLabel(root!, 'Cancel request')!.props.onPress() })
 
     expect(props.onCancelRequest).toHaveBeenCalled()
-    jest.restoreAllMocks()
+  })
+
+  it('"Keep" button closes the modal without calling onCancelRequest', () => {
+    const props = makeProps('pending_sent')
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<UserSearchResult {...props} />) })
+
+    act(() => { findButtonWithLabel(root!, 'Pending')!.props.onPress() })
+    act(() => { findButtonWithLabel(root!, 'Keep')!.props.onPress() })
+
+    expect(props.onCancelRequest).not.toHaveBeenCalled()
   })
 
   it('shows "Accept" button when status is pending_received', () => {

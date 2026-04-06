@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import {
+  FriendshipStatus,
   FriendshipWithProfiles,
   fetchFriendships,
   sendRequest as libSendRequest,
@@ -18,7 +19,7 @@ export type FriendEntry = {
   avatarUrl: string | null
 }
 
-export type RequestEntry = {
+export type IncomingRequestEntry = {
   friendshipId: string
   requesterId: string
   displayName: string
@@ -27,8 +28,9 @@ export type RequestEntry = {
 
 function deriveState(rows: FriendshipWithProfiles[], userId: string) {
   const friends: FriendEntry[] = []
-  const incomingRequests: RequestEntry[] = []
-  // Maps counterparty userId → friendshipId for pending-sent rows
+  const incomingRequests: IncomingRequestEntry[] = []
+  // Maps counterparty userId → friendshipId for pending-sent rows.
+  // Using a Map enables O(1) status lookups in the search results view.
   const outgoingRequestMap = new Map<string, string>()
 
   for (const row of rows) {
@@ -95,7 +97,8 @@ export function useFriendships() {
 
     load()
 
-    // Subscribe to any change on the friendships table and refetch.
+    // Subscribe to changes on the friendships table and refetch.
+    // RLS ensures only events for the current user's rows are delivered.
     // This keeps both parties in sync without a reload — e.g. the recipient
     // sees an incoming request immediately when the sender taps "Add Friend".
     const channel = supabase
@@ -112,6 +115,7 @@ export function useFriendships() {
       .subscribe((status, err) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('useFriendships: Realtime error', err ?? '(no details)')
+          if (active) setError('Live updates disconnected. Pull to refresh.')
         }
       })
 
@@ -122,11 +126,32 @@ export function useFriendships() {
   }, [session?.user.id])
 
   const userId = session?.user.id ?? ''
-  const { friends, incomingRequests, outgoingRequestMap } = deriveState(rows, userId)
+
+  const { friends, incomingRequests, outgoingRequestMap } = useMemo(
+    () => deriveState(rows, userId),
+    [rows, userId]
+  )
+
+  const readonlyOutgoingRequestMap: ReadonlyMap<string, string> = outgoingRequestMap
   const pendingCount = incomingRequests.length
 
+  const getStatusForUser = useCallback((targetUserId: string): FriendshipStatus => {
+    if (friends.some((f) => f.userId === targetUserId)) return 'accepted'
+    if (outgoingRequestMap.has(targetUserId)) return 'pending_sent'
+    if (incomingRequests.some((r) => r.requesterId === targetUserId)) return 'pending_received'
+    return 'none'
+  }, [friends, outgoingRequestMap, incomingRequests])
+
+  const getFriendshipId = useCallback((targetUserId: string): string | null => {
+    return outgoingRequestMap.get(targetUserId) ??
+      incomingRequests.find((r) => r.requesterId === targetUserId)?.friendshipId ??
+      friends.find((f) => f.userId === targetUserId)?.friendshipId ??
+      null
+  }, [friends, outgoingRequestMap, incomingRequests])
+
   const sendRequest = useCallback(async (addresseeId: string): Promise<void> => {
-    // Optimistic: add a placeholder to outgoingRequestMap via a synthetic row
+    // Optimistic: insert a synthetic row into raw state so deriveState()
+    // immediately reflects the pending-sent status.
     const optimisticRow: FriendshipWithProfiles = {
       id: `optimistic-${Date.now()}`,
       requester_id: userId,
@@ -139,7 +164,8 @@ export function useFriendships() {
     setRows((prev) => [...prev, optimisticRow])
     try {
       const inserted = await libSendRequest(supabase, { addresseeId })
-      // Replace optimistic row with real row (profile data will be fetched next load)
+      // Replace optimistic row with real row. Profile data is still placeholder —
+      // the Realtime INSERT event will trigger a full refetch with joined profiles.
       setRows((prev) =>
         prev.map((r) =>
           r.id === optimisticRow.id
@@ -148,62 +174,62 @@ export function useFriendships() {
         )
       )
     } catch (err) {
-      // Roll back
       setRows((prev) => prev.filter((r) => r.id !== optimisticRow.id))
       throw err
     }
   }, [userId])
 
   const cancelRequest = useCallback(async (friendshipId: string): Promise<void> => {
-    const prev = rows
-    setRows((r) => r.filter((row) => row.id !== friendshipId))
+    let snapshot: FriendshipWithProfiles[] = []
+    setRows((current) => { snapshot = current; return current.filter((row) => row.id !== friendshipId) })
     try {
       await libCancelRequest(supabase, { friendshipId })
     } catch (err) {
-      setRows(prev)
+      setRows(snapshot)
       throw err
     }
-  }, [rows])
+  }, [])
 
   const acceptRequest = useCallback(async (friendshipId: string): Promise<void> => {
-    const prev = rows
-    setRows((r) =>
-      r.map((row) => row.id === friendshipId ? { ...row, status: 'accepted' } : row)
-    )
+    let snapshot: FriendshipWithProfiles[] = []
+    setRows((current) => {
+      snapshot = current
+      return current.map((row) => row.id === friendshipId ? { ...row, status: 'accepted' as const } : row)
+    })
     try {
       await libAcceptRequest(supabase, { friendshipId })
     } catch (err) {
-      setRows(prev)
+      setRows(snapshot)
       throw err
     }
-  }, [rows])
+  }, [])
 
   const declineRequest = useCallback(async (friendshipId: string): Promise<void> => {
-    const prev = rows
-    setRows((r) => r.filter((row) => row.id !== friendshipId))
+    let snapshot: FriendshipWithProfiles[] = []
+    setRows((current) => { snapshot = current; return current.filter((row) => row.id !== friendshipId) })
     try {
       await libDeclineRequest(supabase, { friendshipId })
     } catch (err) {
-      setRows(prev)
+      setRows(snapshot)
       throw err
     }
-  }, [rows])
+  }, [])
 
   const unfriend = useCallback(async (friendshipId: string): Promise<void> => {
-    const prev = rows
-    setRows((r) => r.filter((row) => row.id !== friendshipId))
+    let snapshot: FriendshipWithProfiles[] = []
+    setRows((current) => { snapshot = current; return current.filter((row) => row.id !== friendshipId) })
     try {
       await libUnfriend(supabase, { friendshipId })
     } catch (err) {
-      setRows(prev)
+      setRows(snapshot)
       throw err
     }
-  }, [rows])
+  }, [])
 
   return {
     friends,
     incomingRequests,
-    outgoingRequestMap,
+    outgoingRequestMap: readonlyOutgoingRequestMap,
     pendingCount,
     loading,
     error,
@@ -212,5 +238,7 @@ export function useFriendships() {
     acceptRequest,
     declineRequest,
     unfriend,
+    getStatusForUser,
+    getFriendshipId,
   }
 }

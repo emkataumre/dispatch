@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { UserAvatar } from '@/components/UserAvatar'
-import { RequestEntry } from '@/hooks/useFriendships'
+import { IncomingRequestEntry } from '@/hooks/useFriendships'
 
 interface Props {
-  entry: RequestEntry
+  entry: IncomingRequestEntry
   onAccept: () => Promise<void>
   onDecline: () => Promise<void>
 }
@@ -19,6 +19,7 @@ export function FriendRequestRow({ entry, onAccept, onDecline }: Props) {
       await onAccept()
     } catch (err) {
       console.error('FriendRequestRow accept:', err)
+      Alert.alert('Error', 'Could not accept request. Try again.')
     } finally {
       setBusy(null)
     }
@@ -31,6 +32,7 @@ export function FriendRequestRow({ entry, onAccept, onDecline }: Props) {
       await onDecline()
     } catch (err) {
       console.error('FriendRequestRow decline:', err)
+      Alert.alert('Error', 'Could not decline request. Try again.')
     } finally {
       setBusy(null)
     }

@@ -46,7 +46,7 @@ import FriendsScreen from '../friends'
 const EMPTY_FRIENDSHIPS = {
   friends: [],
   incomingRequests: [],
-  outgoingRequestMap: new Map<string, string>(),
+  outgoingRequestMap: new Map<string, string>() as ReadonlyMap<string, string>,
   pendingCount: 0,
   loading: false,
   error: null,
@@ -55,6 +55,8 @@ const EMPTY_FRIENDSHIPS = {
   acceptRequest: jest.fn(),
   declineRequest: jest.fn(),
   unfriend: jest.fn(),
+  getStatusForUser: jest.fn().mockReturnValue('none'),
+  getFriendshipId: jest.fn().mockReturnValue(null),
 }
 
 const IDLE_SEARCH = { results: [], state: 'idle' as const, error: null }

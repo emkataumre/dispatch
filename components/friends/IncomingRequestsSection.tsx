@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { FriendRequestRow } from '@/components/friends/FriendRequestRow'
-import { RequestEntry } from '@/hooks/useFriendships'
+import { IncomingRequestEntry } from '@/hooks/useFriendships'
 
 const INITIAL_VISIBLE = 3
 
 interface Props {
-  requests: RequestEntry[]
+  requests: IncomingRequestEntry[]
   onAccept: (friendshipId: string) => Promise<void>
   onDecline: (friendshipId: string) => Promise<void>
 }

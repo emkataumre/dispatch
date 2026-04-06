@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       friendships: {
@@ -20,21 +45,21 @@ export type Database = {
           created_at: string
           id: string
           requester_id: string
-          status: string
+          status: Database["public"]["Enums"]["friendship_status"]
         }
         Insert: {
           addressee_id: string
           created_at?: string
           id?: string
           requester_id: string
-          status: string
+          status: Database["public"]["Enums"]["friendship_status"]
         }
         Update: {
           addressee_id?: string
           created_at?: string
           id?: string
           requester_id?: string
-          status?: string
+          status?: Database["public"]["Enums"]["friendship_status"]
         }
         Relationships: [
           {
@@ -299,6 +324,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      friendship_status: "pending" | "accepted"
       poi_category:
         | "food_drink"
         | "nightlife"
@@ -431,8 +457,12 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
+      friendship_status: ["pending", "accepted"],
       poi_category: [
         "food_drink",
         "nightlife",

@@ -1,8 +1,10 @@
 -- Migration: 017_friendships
 -- Creates the friendships table for Phase 4 friend requests and friends list.
 -- Covers: send request, accept, decline, cancel, unfriend.
--- The live_presence friends-only SELECT policy will be updated in a separate
--- migration once this table is in place (see TODO in 011_live_presence.sql).
+-- NOTE: The live_presence friends-only SELECT policy is NOT updated in this
+-- migration. A follow-up migration is needed to add the friends subquery to
+-- the 011 SELECT policy (see TODO in 011_live_presence.sql and
+-- docs/rls-policy-sketch.md). Tracked in project_status.md Phase 4.
 
 CREATE TABLE public.friendships (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,8 +15,7 @@ CREATE TABLE public.friendships (
   CONSTRAINT no_self_friendship CHECK (requester_id != addressee_id)
 );
 
--- Prevent A→B and B→A from coexisting simultaneously.
--- LEAST/GREATEST normalise the pair so (A,B) and (B,A) map to the same index entry.
+-- Prevent duplicate pairs: A→B and B→A map to the same index entry via LEAST/GREATEST normalization.
 CREATE UNIQUE INDEX friendships_pair_unique
   ON public.friendships (
     LEAST(requester_id::text, addressee_id::text),

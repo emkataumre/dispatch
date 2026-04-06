@@ -12,7 +12,7 @@ const MOCK_ENTRY = {
 
 describe('FriendRow', () => {
   it('renders the display name', () => {
-    const onUnfriend = jest.fn()
+    const onUnfriend = jest.fn().mockResolvedValue(undefined)
     let root: ReturnType<typeof create>
     act(() => { root = create(<FriendRow entry={MOCK_ENTRY} onUnfriend={onUnfriend} />) })
 
@@ -21,7 +21,7 @@ describe('FriendRow', () => {
   })
 
   it('renders initials avatar fallback', () => {
-    const onUnfriend = jest.fn()
+    const onUnfriend = jest.fn().mockResolvedValue(undefined)
     let root: ReturnType<typeof create>
     act(() => { root = create(<FriendRow entry={MOCK_ENTRY} onUnfriend={onUnfriend} />) })
 
@@ -31,7 +31,7 @@ describe('FriendRow', () => {
   })
 
   it('pressing "..." opens the in-app confirmation modal', () => {
-    const onUnfriend = jest.fn()
+    const onUnfriend = jest.fn().mockResolvedValue(undefined)
     let root: ReturnType<typeof create>
     act(() => { root = create(<FriendRow entry={MOCK_ENTRY} onUnfriend={onUnfriend} />) })
 
@@ -44,7 +44,7 @@ describe('FriendRow', () => {
   })
 
   it('calls onUnfriend when Unfriend button in modal is pressed', async () => {
-    const onUnfriend = jest.fn()
+    const onUnfriend = jest.fn().mockResolvedValue(undefined)
     let root: ReturnType<typeof create>
     act(() => { root = create(<FriendRow entry={MOCK_ENTRY} onUnfriend={onUnfriend} />) })
 
@@ -66,7 +66,7 @@ describe('FriendRow', () => {
   })
 
   it('Cancel button closes the modal without calling onUnfriend', () => {
-    const onUnfriend = jest.fn()
+    const onUnfriend = jest.fn().mockResolvedValue(undefined)
     let root: ReturnType<typeof create>
     act(() => { root = create(<FriendRow entry={MOCK_ENTRY} onUnfriend={onUnfriend} />) })
 

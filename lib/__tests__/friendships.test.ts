@@ -34,8 +34,9 @@ function authedGetUser(userId = MOCK_USER_ID) {
 // ---------- fetchFriendships ----------
 
 describe('fetchFriendships', () => {
-  it('selects with embedded profile joins', async () => {
-    const select = jest.fn().mockResolvedValue({ data: [MOCK_ROW], error: null })
+  it('selects with embedded profile joins and user filter', async () => {
+    const or = jest.fn().mockResolvedValue({ data: [MOCK_ROW], error: null })
+    const select = jest.fn().mockReturnValue({ or })
     const from = jest.fn().mockReturnValue({ select })
     const mock: MockSupabase = { from, auth: { getUser: authedGetUser() } }
 
@@ -43,6 +44,8 @@ describe('fetchFriendships', () => {
     expect(mock.from).toHaveBeenCalledWith('friendships')
     expect(select).toHaveBeenCalledWith(expect.stringContaining('requester:requester_id'))
     expect(select).toHaveBeenCalledWith(expect.stringContaining('addressee:addressee_id'))
+    expect(or).toHaveBeenCalledWith(expect.stringContaining(`requester_id.eq.${MOCK_USER_ID}`))
+    expect(or).toHaveBeenCalledWith(expect.stringContaining(`addressee_id.eq.${MOCK_USER_ID}`))
     expect(result).toEqual([MOCK_ROW])
   })
 
@@ -56,7 +59,8 @@ describe('fetchFriendships', () => {
   })
 
   it('throws on Supabase error', async () => {
-    const select = jest.fn().mockResolvedValue({ data: null, error: { message: 'db error' } })
+    const or = jest.fn().mockResolvedValue({ data: null, error: { message: 'db error' } })
+    const select = jest.fn().mockReturnValue({ or })
     const from = jest.fn().mockReturnValue({ select })
     const mock: MockSupabase = { from, auth: { getUser: authedGetUser() } }
     await expect(fetchFriendships(asClient(mock))).rejects.toThrow('db error')
@@ -66,7 +70,7 @@ describe('fetchFriendships', () => {
 // ---------- sendRequest ----------
 
 describe('sendRequest', () => {
-  function makeSendMock(result = { data: MOCK_ROW, error: null }) {
+  function makeSendMock(result: { data: typeof MOCK_ROW | null; error: unknown } = { data: MOCK_ROW, error: null }) {
     const single = jest.fn().mockResolvedValue(result)
     const select = jest.fn().mockReturnValue({ single })
     const insert = jest.fn().mockReturnValue({ select })
@@ -94,14 +98,14 @@ describe('sendRequest', () => {
   })
 
   it('throws "Friend request already exists" on unique violation (23505)', async () => {
-    const mock = makeSendMock({ data: null, error: { message: 'duplicate', code: '23505' } as never })
+    const mock = makeSendMock({ data: null, error: { message: 'duplicate', code: '23505' } })
     await expect(
       sendRequest(asClient(mock), { addresseeId: MOCK_ADDRESSEE_ID })
     ).rejects.toThrow('Friend request already exists')
   })
 
   it('throws Supabase message on other errors', async () => {
-    const mock = makeSendMock({ data: null, error: { message: 'insert failed' } as never })
+    const mock = makeSendMock({ data: null, error: { message: 'insert failed' } })
     await expect(
       sendRequest(asClient(mock), { addresseeId: MOCK_ADDRESSEE_ID })
     ).rejects.toThrow('insert failed')
@@ -163,25 +167,32 @@ describe('cancelRequest', () => {
 // ---------- acceptRequest ----------
 
 describe('acceptRequest', () => {
-  function makeUpdateMock(result = { error: null }) {
+  function makeUpdateMock(result = { count: 1, error: null }) {
     const eq = jest.fn().mockResolvedValue(result)
     const update = jest.fn().mockReturnValue({ eq })
     const from = jest.fn().mockReturnValue({ update })
     return { from, auth: { getUser: authedGetUser() } }
   }
 
-  it('updates status to accepted by friendshipId', async () => {
+  it('updates status to accepted by friendshipId with count check', async () => {
     const mock = makeUpdateMock()
     await acceptRequest(asClient(mock), { friendshipId: MOCK_FRIENDSHIP_ID })
 
     const upd = mock.from.mock.results[0].value.update
-    expect(upd).toHaveBeenCalledWith({ status: 'accepted' })
+    expect(upd).toHaveBeenCalledWith({ status: 'accepted' }, { count: 'exact' })
     const eq = upd.mock.results[0].value.eq
     expect(eq).toHaveBeenCalledWith('id', MOCK_FRIENDSHIP_ID)
   })
 
+  it('throws "Request not found or already handled" when 0 rows updated', async () => {
+    const mock = makeUpdateMock({ count: 0, error: null })
+    await expect(
+      acceptRequest(asClient(mock), { friendshipId: MOCK_FRIENDSHIP_ID })
+    ).rejects.toThrow('Request not found or already handled')
+  })
+
   it('throws Supabase error message on failure', async () => {
-    const mock = makeUpdateMock({ error: { message: 'update failed' } as never })
+    const mock = makeUpdateMock({ count: null as never, error: { message: 'update failed' } as never })
     await expect(
       acceptRequest(asClient(mock), { friendshipId: MOCK_FRIENDSHIP_ID })
     ).rejects.toThrow('update failed')
