@@ -1,9 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { UserAvatar } from '@/components/UserAvatar'
-import { UserSearchResult as UserSearchResultType } from '@/lib/friends'
+import { SearchUser } from '@/lib/friends'
 
 interface Props {
-  user: UserSearchResultType
+  user: SearchUser
 }
 
 export function UserSearchResult({ user }: Props) {

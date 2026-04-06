@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { searchUsers, UserSearchResult } from '@/lib/friends'
+import { searchUsers, SearchUser } from '@/lib/friends'
 
-type SearchState = 'idle' | 'searching' | 'results' | 'error'
+export type SearchResult =
+  | { state: 'idle'; results: []; error: null }
+  | { state: 'searching'; results: SearchUser[]; error: null }
+  | { state: 'results'; results: SearchUser[]; error: null }
+  | { state: 'error'; results: []; error: string }
 
-export function useUserSearch(query: string): {
-  results: UserSearchResult[]
-  state: SearchState
-  error: string | null
-} {
-  const [results, setResults] = useState<UserSearchResult[]>([])
-  const [state, setState] = useState<SearchState>('idle')
+export function useUserSearch(query: string): SearchResult {
+  const [results, setResults] = useState<SearchUser[]>([])
+  const [state, setState] = useState<SearchResult['state']>('idle')
   const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -19,6 +19,7 @@ export function useUserSearch(query: string): {
 
     const trimmed = query.trim()
 
+    // Require at least 2 characters to avoid overly broad prefix queries
     if (trimmed.length < 2) {
       setResults([])
       setState('idle')
@@ -29,6 +30,7 @@ export function useUserSearch(query: string): {
     let active = true
     setState('searching')
 
+    // 300ms debounce to avoid firing a search request on every keystroke
     timerRef.current = setTimeout(async () => {
       try {
         const data = await searchUsers(supabase, { query: trimmed })
@@ -38,6 +40,7 @@ export function useUserSearch(query: string): {
         setError(null)
       } catch (err) {
         if (!active) return
+        console.error('useUserSearch: search failed for query:', trimmed, err)
         setError(err instanceof Error ? err.message : 'Search failed')
         setState('error')
         setResults([])
@@ -50,5 +53,5 @@ export function useUserSearch(query: string): {
     }
   }, [query])
 
-  return { results, state, error }
+  return { results, state, error } as SearchResult
 }

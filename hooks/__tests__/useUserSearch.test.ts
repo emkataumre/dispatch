@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { act, create } from 'react-test-renderer'
 
 const mockSearchUsers = jest.fn()
@@ -144,5 +144,90 @@ describe('useUserSearch', () => {
       expect.anything(),
       { query: 'Jane' }
     )
+  })
+
+  it('discards stale results when query drops below threshold while search is in-flight', async () => {
+    let resolveSearch!: (v: typeof MOCK_RESULTS) => void
+    mockSearchUsers.mockImplementation(() => new Promise((r) => { resolveSearch = r }))
+
+    let setQueryExternal!: (q: string) => void
+    const result: { current: ReturnType<typeof useUserSearch> } = { current: undefined as never }
+
+    function TestComponent() {
+      const [q, setQ] = useState('Ja')
+      setQueryExternal = setQ
+      result.current = useUserSearch(q)
+      return null
+    }
+
+    act(() => { create(React.createElement(TestComponent)) })
+
+    // Advance past debounce — search fires and is now in-flight
+    await act(async () => {
+      jest.advanceTimersByTime(300)
+      await Promise.resolve()
+    })
+    expect(mockSearchUsers).toHaveBeenCalledTimes(1)
+    expect(result.current.state).toBe('searching')
+
+    // Drop query below threshold while search is in-flight — cleanup sets active = false
+    act(() => { setQueryExternal('J') })
+    expect(result.current.state).toBe('idle')
+
+    // Stale search resolves — should be discarded because active is false
+    await act(async () => {
+      resolveSearch(MOCK_RESULTS)
+      await Promise.resolve()
+    })
+
+    expect(result.current.state).toBe('idle')
+    expect(result.current.results).toEqual([])
+  })
+
+  it('cancels the previous debounce timer when the query changes', async () => {
+    mockSearchUsers.mockResolvedValue(MOCK_RESULTS)
+
+    let setQueryExternal!: (q: string) => void
+    const result: { current: ReturnType<typeof useUserSearch> } = { current: undefined as never }
+
+    function TestComponent() {
+      const [q, setQ] = useState('Ja')
+      setQueryExternal = setQ
+      result.current = useUserSearch(q)
+      return null
+    }
+
+    act(() => { create(React.createElement(TestComponent)) })
+
+    // Advance 200ms — debounce has not yet fired
+    jest.advanceTimersByTime(200)
+    expect(mockSearchUsers).not.toHaveBeenCalled()
+
+    // Change query — previous timer should be cancelled and a new 300ms window starts
+    act(() => { setQueryExternal('Jane') })
+
+    // Advance 300ms more — only the 'Jane' search should fire
+    await act(async () => {
+      jest.advanceTimersByTime(300)
+      await Promise.resolve()
+    })
+
+    expect(mockSearchUsers).toHaveBeenCalledTimes(1)
+    expect(mockSearchUsers).toHaveBeenCalledWith(expect.anything(), { query: 'Jane' })
+    expect(result.current.state).toBe('results')
+  })
+
+  it('sets error to Search failed when a non-Error value is thrown', async () => {
+    mockSearchUsers.mockRejectedValue('plain string error')
+
+    const result = renderHook(() => useUserSearch('Ja'))
+
+    await act(async () => {
+      jest.advanceTimersByTime(300)
+      await Promise.resolve()
+    })
+
+    expect(result.current.state).toBe('error')
+    expect(result.current.error).toBe('Search failed')
   })
 })

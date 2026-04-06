@@ -38,8 +38,10 @@ export function UserAvatar({
   borderColor = '#ffffff',
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false)
-  const initials = getInitials(displayName)
-  const bgColor = getBubbleColor(displayName)
+  // Fall back to '?' placeholder if displayName is empty to avoid an invisible circle
+  const effectiveName = displayName.trim() || '?'
+  const initials = getInitials(effectiveName)
+  const bgColor = getBubbleColor(effectiveName)
   const radius = size / 2
 
   const containerStyle = {
@@ -57,7 +59,10 @@ export function UserAvatar({
         <Image
           source={{ uri: avatarUrl }}
           style={{ width: size, height: size }}
-          onError={() => setImageError(true)}
+          onError={() => {
+            console.warn('UserAvatar: failed to load avatar image', avatarUrl)
+            setImageError(true)
+          }}
         />
       </View>
     )

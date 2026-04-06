@@ -45,8 +45,9 @@ export function usePoiRatings(poiId: string | undefined) {
     setError(null)
 
     // Relies on the "Profiles viewable by authenticated users" RLS SELECT policy
-    // allowing cross-user reads of display_name. If that policy is ever tightened,
-    // profiles will silently return null and display_name will fall back to 'Unknown'.
+    // allowing cross-user reads of display_name and avatar_url. If that policy is ever
+    // tightened, the profiles join will silently return null and both fields will fall
+    // back to defaults.
     const { data, error } = await supabase
       .from('poi_ratings')
       .select('id, rating, comment, created_at, user_id, profiles(display_name, avatar_url)')

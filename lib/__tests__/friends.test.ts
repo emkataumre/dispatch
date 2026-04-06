@@ -1,10 +1,10 @@
-import { searchUsers } from '../friends'
+import { searchUsers, SearchUser } from '../friends'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { Database } from '../../types/supabase'
 
 const MOCK_USER_ID = 'user-123'
 
-const MOCK_RESULTS = [
+const MOCK_RESULTS: SearchUser[] = [
   { id: 'user-456', display_name: 'Jane Doe', avatar_url: null },
   { id: 'user-789', display_name: 'James Smith', avatar_url: 'https://example.com/avatar.png' },
 ]
@@ -83,5 +83,23 @@ describe('searchUsers', () => {
       queryResult: { data: null, error: { message: 'network failure' } },
     })
     await expect(searchUsers(asClient(mock), { query: 'Jane' })).rejects.toThrow('network failure')
+  })
+
+  it('escapes ILIKE special characters in the query', async () => {
+    const mock = makeMockSupabase()
+    await searchUsers(asClient(mock), { query: '%admin' })
+
+    const fromInstance = mock.from.mock.results[0].value
+    const selectInstance = fromInstance.select.mock.results[0].value
+    expect(selectInstance.ilike).toHaveBeenCalledWith('display_name', '\\%admin%')
+  })
+
+  it('escapes underscore wildcard in the query', async () => {
+    const mock = makeMockSupabase()
+    await searchUsers(asClient(mock), { query: '_test' })
+
+    const fromInstance = mock.from.mock.results[0].value
+    const selectInstance = fromInstance.select.mock.results[0].value
+    expect(selectInstance.ilike).toHaveBeenCalledWith('display_name', '\\_test%')
   })
 })

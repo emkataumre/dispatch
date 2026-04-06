@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useUserSearch } from '@/hooks/useUserSearch'
 import { UserSearchResult } from '@/components/friends/UserSearchResult'
-import { UserSearchResult as UserSearchResultType } from '@/lib/friends'
 
 export default function FriendsScreen() {
   const [query, setQuery] = useState('')
-  const { results, state, error } = useUserSearch(query)
+  const search = useUserSearch(query)
 
   return (
     <View style={styles.container}>
@@ -23,36 +22,36 @@ export default function FriendsScreen() {
         />
       </View>
 
-      {state === 'idle' && (
+      {search.state === 'idle' && (
         <View style={styles.center}>
           <Text style={styles.hint}>Search for friends by name</Text>
         </View>
       )}
 
-      {state === 'searching' && (
+      {search.state === 'searching' && (
         <View style={styles.center}>
           <ActivityIndicator size="small" color="#131313" />
         </View>
       )}
 
-      {state === 'results' && results.length === 0 && (
+      {search.state === 'results' && search.results.length === 0 && (
         <View style={styles.center}>
           <Text style={styles.hint}>No users found</Text>
         </View>
       )}
 
-      {state === 'results' && results.length > 0 && (
-        <FlatList<UserSearchResultType>
-          data={results}
+      {search.state === 'results' && search.results.length > 0 && (
+        <FlatList
+          data={search.results}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <UserSearchResult user={item} />}
           contentContainerStyle={styles.list}
         />
       )}
 
-      {state === 'error' && (
+      {search.state === 'error' && (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{error ?? 'Something went wrong'}</Text>
+          <Text style={styles.errorText}>{search.error}</Text>
         </View>
       )}
     </View>

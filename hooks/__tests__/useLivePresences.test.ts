@@ -187,7 +187,7 @@ describe('useLivePresences', () => {
     expect(mockSingleFn).toHaveBeenCalledTimes(1) // always fetches fresh
   })
 
-  it('fetches profile on INSERT when user is not in cache (cache miss)', async () => {
+  it('fetches fresh profile on INSERT when user has no prior cache entry', async () => {
     mockNeqFn.mockResolvedValue({ data: [], error: null })
     mockSingleFn.mockResolvedValue({
       data: { display_name: 'Bob Smith', avatar_url: 'https://example.com/bob.jpg' },
@@ -269,7 +269,7 @@ describe('useLivePresences', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('adds presence with fallback name when profile fetch fails on cache miss', async () => {
+  it('falls back to Unknown when profile fetch fails and no cached entry exists', async () => {
     mockNeqFn.mockResolvedValue({ data: [], error: null })
     mockSingleFn.mockResolvedValue({ data: null, error: { message: 'not found' } })
 

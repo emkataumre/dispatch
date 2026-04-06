@@ -89,6 +89,9 @@ export function useLivePresences() {
         if (!active) return
         if (profileError) {
           console.error(`useLivePresences: Failed to fetch profile for ${rowUserId}:`, profileError.message)
+          if (!profileCache.current.has(rowUserId)) {
+            console.warn(`useLivePresences: no cached profile for user ${rowUserId}, presence will show as Unknown`)
+          }
         }
         const profile: ProfileData = data
           ? { displayName: data.display_name, avatarUrl: data.avatar_url }
