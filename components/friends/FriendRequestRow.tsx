@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { UserAvatar } from '@/components/UserAvatar'
 import { IncomingRequestEntry } from '@/hooks/useFriendships'
 
@@ -11,15 +11,17 @@ interface Props {
 
 export function FriendRequestRow({ entry, onAccept, onDecline }: Props) {
   const [busy, setBusy] = useState<'accept' | 'decline' | null>(null)
+  const [errorText, setErrorText] = useState<string | null>(null)
 
   const handleAccept = async () => {
     if (busy) return
     setBusy('accept')
+    setErrorText(null)
     try {
       await onAccept()
     } catch (err) {
       console.error('FriendRequestRow accept:', err)
-      Alert.alert('Error', 'Could not accept request. Try again.')
+      setErrorText('Could not accept request. Try again.')
     } finally {
       setBusy(null)
     }
@@ -28,17 +30,19 @@ export function FriendRequestRow({ entry, onAccept, onDecline }: Props) {
   const handleDecline = async () => {
     if (busy) return
     setBusy('decline')
+    setErrorText(null)
     try {
       await onDecline()
     } catch (err) {
       console.error('FriendRequestRow decline:', err)
-      Alert.alert('Error', 'Could not decline request. Try again.')
+      setErrorText('Could not decline request. Try again.')
     } finally {
       setBusy(null)
     }
   }
 
   return (
+    <View>
     <View style={styles.row}>
       <UserAvatar
         displayName={entry.displayName}
@@ -73,6 +77,8 @@ export function FriendRequestRow({ entry, onAccept, onDecline }: Props) {
           <Text style={styles.acceptText}>Accept</Text>
         )}
       </TouchableOpacity>
+    </View>
+    {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
     </View>
   )
 }
@@ -119,5 +125,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#fff',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#E51E1E',
+    fontWeight: '500',
+    paddingHorizontal: 16,
+    paddingBottom: 6,
   },
 })

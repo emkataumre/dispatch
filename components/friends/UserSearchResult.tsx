@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { UserAvatar } from '@/components/UserAvatar'
 import { SearchUser } from '@/lib/friends'
 import { FriendshipStatus } from '@/lib/friendships'
@@ -15,17 +15,20 @@ interface Props {
 export function UserSearchResult({ user, status, onSendRequest, onCancelRequest, onAcceptRequest }: Props) {
   const [busy, setBusy] = useState(false)
   const [cancelModalVisible, setCancelModalVisible] = useState(false)
+  const [rowError, setRowError] = useState<string | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
 
   const handlePress = async () => {
     if (busy) return
 
     if (status === 'none') {
       setBusy(true)
+      setRowError(null)
       try {
         await onSendRequest()
       } catch (err) {
         console.error('UserSearchResult sendRequest:', err)
-        Alert.alert('Error', 'Could not send friend request. Try again.')
+        setRowError('Could not send friend request. Try again.')
       } finally {
         setBusy(false)
       }
@@ -39,11 +42,12 @@ export function UserSearchResult({ user, status, onSendRequest, onCancelRequest,
 
     if (status === 'pending_received') {
       setBusy(true)
+      setRowError(null)
       try {
         await onAcceptRequest()
       } catch (err) {
         console.error('UserSearchResult acceptRequest:', err)
-        Alert.alert('Error', 'Could not accept request. Try again.')
+        setRowError('Could not accept request. Try again.')
       } finally {
         setBusy(false)
       }
@@ -52,12 +56,13 @@ export function UserSearchResult({ user, status, onSendRequest, onCancelRequest,
 
   const handleConfirmCancel = async () => {
     setBusy(true)
+    setModalError(null)
     try {
       await onCancelRequest()
       setCancelModalVisible(false)
     } catch (err) {
       console.error('UserSearchResult cancelRequest:', err)
-      Alert.alert('Error', 'Could not cancel request. Try again.')
+      setModalError('Could not cancel request. Try again.')
     } finally {
       setBusy(false)
     }
@@ -67,6 +72,7 @@ export function UserSearchResult({ user, status, onSendRequest, onCancelRequest,
 
   return (
     <>
+      <View>
       <View style={styles.row}>
         <UserAvatar
           displayName={user.display_name}
@@ -89,6 +95,8 @@ export function UserSearchResult({ user, status, onSendRequest, onCancelRequest,
             <Text style={[styles.buttonText, buttonConfig.textStyle]}>{buttonConfig.label}</Text>
           )}
         </TouchableOpacity>
+      </View>
+      {rowError ? <Text style={styles.rowErrorText}>{rowError}</Text> : null}
       </View>
 
       <Modal
@@ -124,6 +132,8 @@ export function UserSearchResult({ user, status, onSendRequest, onCancelRequest,
             >
               <Text style={styles.cancelText}>Keep</Text>
             </TouchableOpacity>
+
+            {modalError ? <Text style={styles.modalErrorText}>{modalError}</Text> : null}
           </View>
         </View>
       </Modal>
@@ -274,5 +284,18 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: '#999',
+  },
+  rowErrorText: {
+    fontSize: 12,
+    color: '#E51E1E',
+    fontWeight: '500',
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
+  modalErrorText: {
+    fontSize: 13,
+    color: '#E51E1E',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 })

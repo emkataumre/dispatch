@@ -1,5 +1,5 @@
 import React from 'react'
-import { ActivityIndicator, Alert, TouchableOpacity } from 'react-native'
+import { ActivityIndicator, Text, TouchableOpacity } from 'react-native'
 import { act, create, ReactTestInstance } from 'react-test-renderer'
 import { PresenceCard } from '../PresenceCard'
 import { LivePresenceEntry } from '@/hooks/useLivePresences'
@@ -214,8 +214,7 @@ describe('PresenceCard', () => {
     expect(texts.filter((t) => t === 'grabbing coffee').length).toBe(0)
   })
 
-  it('shows Alert and resets busy when onJoin rejects', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+  it('shows inline error and resets busy when onJoin rejects', async () => {
     const onJoin = jest.fn().mockRejectedValue(new Error('network failure'))
 
     let root: ReturnType<typeof create>
@@ -239,15 +238,16 @@ describe('PresenceCard', () => {
 
     await act(async () => { joinButton!.props.onPress() })
 
-    expect(alertSpy).toHaveBeenCalledWith('Error', expect.any(String))
     // busy resets to false — ActivityIndicator should be gone
     expect(root!.root.findAllByType(ActivityIndicator).length).toBe(0)
-
-    alertSpy.mockRestore()
+    // error shown inline
+    const errorNode = root!.root
+      .findAllByType(Text)
+      .find((n: ReactTestInstance) => String(n.props.children).includes('Could not join'))
+    expect(errorNode).toBeDefined()
   })
 
-  it('shows already-joined message when error includes "already joined"', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+  it('shows already-joined message inline when error includes "already joined"', async () => {
     const onJoin = jest.fn().mockRejectedValue(new Error('You have already joined this person.'))
 
     let root: ReturnType<typeof create>
@@ -271,8 +271,10 @@ describe('PresenceCard', () => {
 
     await act(async () => { joinButton!.props.onPress() })
 
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'You have already joined this person.')
-    alertSpy.mockRestore()
+    const errorNode = root!.root
+      .findAllByType(Text)
+      .find((n: ReactTestInstance) => String(n.props.children) === 'You have already joined this person.')
+    expect(errorNode).toBeDefined()
   })
 
   it('extracts first name for Join button label', () => {
