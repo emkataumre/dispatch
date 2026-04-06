@@ -82,6 +82,9 @@ jest.mock('@/hooks/useActivePresence', () => {
 // Child component mocks — render null so only MapScreen's own nodes are visible
 // ---------------------------------------------------------------------------
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }))
+jest.mock('@/hooks/useFriendships', () => ({
+  useFriendships: jest.fn(() => ({ friends: [], incomingRequests: [], outgoingRequestMap: new Map(), sendRequest: jest.fn(), acceptRequest: jest.fn(), declineRequest: jest.fn(), cancelRequest: jest.fn(), unfriend: jest.fn(), getStatusForUser: jest.fn(() => 'none'), getFriendshipId: jest.fn(() => null) })),
+}))
 jest.mock('@/hooks/useLivePresences', () => ({
   useLivePresences: jest.fn(() => ({ presences: [], loading: false, error: null })),
 }))
