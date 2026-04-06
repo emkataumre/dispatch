@@ -33,7 +33,10 @@ export function useLivePresences() {
     }
 
     let active = true
-    let initialSubscribe = true
+    // Tracks whether the channel has ever successfully subscribed.
+    // Used to distinguish the initial connect (don't refetch — initial load is in flight)
+    // from a reconnect after a drop or CHANNEL_ERROR (refetch to catch missed events).
+    let everSubscribed = false
     setError(null)
     setLoading(true)
 
@@ -141,11 +144,12 @@ export function useLivePresences() {
       .subscribe((status: string, err?: Error) => {
         if (!active) return
         if (status === 'SUBSCRIBED') {
-          if (initialSubscribe) {
-            initialSubscribe = false
-          } else {
-            // Reconnected after a drop — re-fetch to catch missed events
+          setError(null)
+          if (everSubscribed) {
+            // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events
             fetchPresences()
+          } else {
+            everSubscribed = true
           }
         } else if (status === 'TIMED_OUT') {
           console.error('useLivePresences: Realtime subscription timed out')
