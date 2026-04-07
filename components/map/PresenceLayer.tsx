@@ -49,6 +49,7 @@ export function PresenceLayer({ presences, pois, onPoiPress }: Props) {
             id={`presence-${poiId}`}
             coordinate={[poi.lng, poi.lat]}
             anchor={{ x: 0.5, y: 0.5 }}
+            allowOverlap
           >
             <Pressable onPress={() => onPoiPress(poi)} style={styles.row}>
               {visible.map((entry, i) => (
