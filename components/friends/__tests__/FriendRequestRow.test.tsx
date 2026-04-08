@@ -75,6 +75,30 @@ describe('FriendRequestRow', () => {
     await act(async () => { resolveAccept() })
   })
 
+  it('shows inline error when onAccept rejects', async () => {
+    const onAccept = jest.fn().mockRejectedValue(new Error('network'))
+    const onDecline = jest.fn().mockResolvedValue(undefined)
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<FriendRequestRow entry={MOCK_ENTRY} onAccept={onAccept} onDecline={onDecline} />) })
+
+    await act(async () => { findButtonWithLabel(root!, 'Accept')!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not accept request. Try again.')).toBe(true)
+  })
+
+  it('shows inline error when onDecline rejects', async () => {
+    const onAccept = jest.fn().mockResolvedValue(undefined)
+    const onDecline = jest.fn().mockRejectedValue(new Error('network'))
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<FriendRequestRow entry={MOCK_ENTRY} onAccept={onAccept} onDecline={onDecline} />) })
+
+    await act(async () => { findButtonWithLabel(root!, 'Decline')!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not decline request. Try again.')).toBe(true)
+  })
+
   it('shows ActivityIndicator while decline is in progress', async () => {
     let resolveDecline!: () => void
     const onAccept = jest.fn().mockResolvedValue(undefined)

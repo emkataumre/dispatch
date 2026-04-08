@@ -35,6 +35,7 @@ export default function MapScreen() {
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
   const [locationGranted, setLocationGranted] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const cameraRef = useRef<Mapbox.Camera>(null)
   const pendingCamera = useRef<Poi | null>(null)
 
@@ -89,6 +90,7 @@ export default function MapScreen() {
   }, [])
 
   const handleReturnToLocation = useCallback(async () => {
+    setLocationError(null)
     try {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
       cameraRef.current?.setCamera({
@@ -98,6 +100,8 @@ export default function MapScreen() {
       })
     } catch (err) {
       console.error('handleReturnToLocation: failed to get current position', err)
+      setLocationError("Couldn't get your location — try again.")
+      setTimeout(() => setLocationError(null), 3000)
     }
   }, [])
 
@@ -147,7 +151,7 @@ export default function MapScreen() {
         </Pressable>
       )}
 
-      {(poisError || ratingsError || presenceError || friendshipsError || joinsError) && (
+      {(poisError || ratingsError || presenceError || friendshipsError || joinsError || locationError) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>
             {poisError
@@ -158,6 +162,8 @@ export default function MapScreen() {
               ? 'Live updates unavailable — check your connection.'
               : friendshipsError
               ? 'Friend list unavailable — some presences may be hidden.'
+              : locationError
+              ? locationError
               : 'Could not load join status — check your connection.'}
           </Text>
         </View>

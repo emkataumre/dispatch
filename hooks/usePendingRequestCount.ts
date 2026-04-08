@@ -62,8 +62,12 @@ export function usePendingRequestCount(): number {
           } else {
             subscribedOnce = true
           }
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('usePendingRequestCount: Realtime error', err ?? '(no details)')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('usePendingRequestCount: Realtime channel error', err ?? '(no details)')
+        } else if (status === 'TIMED_OUT') {
+          console.error('usePendingRequestCount: Realtime subscription timed out')
+        } else if (status === 'CLOSED') {
+          console.error('usePendingRequestCount: Realtime channel closed unexpectedly')
         }
       })
 

@@ -86,6 +86,7 @@ jest.mock('@/lib/poiCategories', () => ({
 }))
 
 import { PoiBottomSheet } from '../PoiBottomSheet'
+import { dismissPresence } from '@/lib/presence'
 
 type Poi = Tables<'pois'>
 
@@ -219,6 +220,28 @@ describe('PoiBottomSheet — Who\'s here section', () => {
     const other = mockPresenceCardProps.find((p) => p.presence.userId === 'someone-else')
     expect(own?.isOwnPresence).toBe(true)
     expect(other?.isOwnPresence).toBe(false)
+  })
+
+  it('shows dismissError below Leave button when dismissPresence rejects', async () => {
+    const { TouchableOpacity } = require('react-native')
+    ;(dismissPresence as jest.Mock).mockRejectedValue(new Error('network'))
+
+    const activePresence = { id: 'presence-1', poi_id: 'poi-1', message: null, visible_to: 'community' as const }
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(<PoiBottomSheet {...BASE_PROPS} activePresence={activePresence} locationGranted={true} />)
+    })
+
+    const leaveBtn = root!.root.findAllByType(TouchableOpacity).find((n: ReactTestInstance) => {
+      const texts = n.findAll((c: ReactTestInstance) => (c.type as string) === 'Text')
+      return texts.some((t) => String(t.props.children) === 'Leave')
+    })
+    expect(leaveBtn).toBeDefined()
+
+    await act(async () => { leaveBtn!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not end broadcast. Try again.')).toBe(true)
   })
 
   it('passes getJoinForPresence result to PresenceCard as existingJoin', () => {

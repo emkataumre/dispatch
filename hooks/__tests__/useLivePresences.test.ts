@@ -529,11 +529,57 @@ describe('useLivePresences', () => {
     expect(result.current.error).not.toBeNull()
     consoleSpy.mockRestore()
 
-    // Reconnect — should re-fetch and clear error
+    // Reconnect — should re-fetch; error cleared only after fetchPresences resolves
     await act(async () => { communityHandler('SUBSCRIBED') })
     await flush()
 
     expect(mockNeqFn).toHaveBeenCalledTimes(2)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('refetches after TIMED_OUT + SUBSCRIBED reconnect', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    const result = renderHook(() => useLivePresences([]))
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (status: string, err?: Error) => void
+
+    act(() => { communityHandler('SUBSCRIBED') })
+
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    act(() => { communityHandler('TIMED_OUT') })
+    expect(result.current.error).not.toBeNull()
+    consoleSpy.mockRestore()
+
+    await act(async () => { communityHandler('SUBSCRIBED') })
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(2)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('allHealthy gate: error cleared only when both channels have initial SUBSCRIBED', async () => {
+    // Initial fetch fails — sets an error
+    mockNeqFn.mockResolvedValue({ data: null, error: { message: 'network down' } })
+
+    const result = renderHook(() => useLivePresences(['user-5']))
+    await flush()
+
+    expect(result.current.error).toBe('network down')
+
+    const [communityHandler, friendsHandler] = mockSubscribeFn.mock.calls.map(
+      (c: unknown[]) => c[0] as (status: string) => void
+    )
+
+    // Community subscribes first (initial connect) — friends not yet healthy
+    act(() => { communityHandler('SUBSCRIBED') })
+    expect(result.current.error).toBe('network down') // error stays — not allHealthy yet
+
+    // Friends channel also subscribes — now allHealthy, error clears
+    act(() => { friendsHandler('SUBSCRIBED') })
     expect(result.current.error).toBeNull()
   })
 

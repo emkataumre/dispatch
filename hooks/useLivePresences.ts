@@ -125,7 +125,10 @@ export function useLivePresences(friendIds: string[]) {
           return [...prev, entry]
         })
       } catch (err) {
-        console.error('useLivePresences: Failed to process INSERT event', err)
+        console.error(
+          `useLivePresences: Failed to process INSERT for presence ${payload.new.id} / user ${payload.new.user_id}`,
+          err
+        )
       }
     }
 
@@ -147,7 +150,10 @@ export function useLivePresences(friendIds: string[]) {
           )
         }
       } catch (err) {
-        console.error('useLivePresences: Failed to process UPDATE event', err)
+        console.error(
+          `useLivePresences: Failed to process UPDATE for presence ${payload.new.id} / user ${payload.new.user_id}`,
+          err
+        )
       }
     }
 
@@ -161,13 +167,17 @@ export function useLivePresences(friendIds: string[]) {
         everSubscribed.current[channelName] = true
         channelHealth.current[channelName] = true
         if (wasEverSubscribed) {
-          // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events
+          // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events.
+          // fetchPresences() calls setError(null) on success, so we intentionally do NOT
+          // clear the error here — clearing it before the async fetch resolves would
+          // create a race where the banner dismisses even if the refetch fails.
           fetchPresences()
+        } else {
+          // Initial connect — no refetch needed. Clear any stale error if all channels healthy.
+          const allHealthy = channelHealth.current.community &&
+            (friendIds.length === 0 || channelHealth.current.friends)
+          if (allHealthy) setError(null)
         }
-        // Only clear the error banner when all active channels are healthy
-        const allHealthy = channelHealth.current.community &&
-          (friendIds.length === 0 || channelHealth.current.friends)
-        if (allHealthy) setError(null)
       } else if (status === 'TIMED_OUT') {
         channelHealth.current[channelName] = false
         console.error(`useLivePresences [${channelName}]: Realtime subscription timed out`)
