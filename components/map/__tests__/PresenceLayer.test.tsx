@@ -20,8 +20,8 @@ jest.mock('@rnmapbox/maps', () => {
   return {
     __esModule: true,
     default: {
-      MarkerView: function MockMarkerView({ children, id, coordinate }: { children: React.ReactNode; id: string; coordinate: number[] }) {
-        return React.createElement('MarkerView', { id, coordinate }, children)
+      MarkerView: function MockMarkerView({ children, id, coordinate, allowOverlap }: { children: React.ReactNode; id: string; coordinate: number[]; allowOverlap?: boolean }) {
+        return React.createElement('MarkerView', { id, coordinate, allowOverlap }, children)
       },
     },
   }
@@ -178,6 +178,19 @@ describe('PresenceLayer', () => {
 
     const markers = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')
     expect(markers.length).toBe(2)
+  })
+
+  it('renders MarkerView with allowOverlap so bubbles are visible at all zoom levels', () => {
+    const presence = makePresence()
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceLayer presences={[presence]} pois={[makePoi()]} onPoiPress={jest.fn()} />
+      )
+    })
+
+    const marker = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'MarkerView')[0]
+    expect(marker.props.allowOverlap).toBe(true)
   })
 
   it('skips a presence whose POI is not in the pois array', () => {

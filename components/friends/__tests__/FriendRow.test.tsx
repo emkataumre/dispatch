@@ -65,6 +65,28 @@ describe('FriendRow', () => {
     expect(onUnfriend).toHaveBeenCalled()
   })
 
+  it('shows inline error inside modal when onUnfriend rejects', async () => {
+    const onUnfriend = jest.fn().mockRejectedValue(new Error('Network error'))
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<FriendRow entry={MOCK_ENTRY} onUnfriend={onUnfriend} />) })
+
+    // Open modal
+    const menuBtn = root!.root.findAllByType(TouchableOpacity).find(
+      (n) => n.props.accessibilityLabel === 'Friend options'
+    )
+    act(() => { menuBtn!.props.onPress() })
+
+    // Press Unfriend — should reject
+    const unfriendBtn = root!.root.findAllByType(TouchableOpacity).find((n) => {
+      const texts = n.findAll((c: ReactTestInstance) => (c.type as string) === 'Text')
+      return texts.some((t) => String(t.props.children) === 'Unfriend')
+    })
+    await act(async () => { unfriendBtn!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not unfriend. Try again.')).toBe(true)
+  })
+
   it('Cancel button closes the modal without calling onUnfriend', () => {
     const onUnfriend = jest.fn().mockResolvedValue(undefined)
     let root: ReturnType<typeof create>

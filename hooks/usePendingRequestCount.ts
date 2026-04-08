@@ -42,6 +42,7 @@ export function usePendingRequestCount(): number {
 
     load()
 
+    let subscribedOnce = false
     const channel = supabase
       .channel(channelId.current)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'friendships' }, () => {
@@ -54,8 +55,19 @@ export function usePendingRequestCount(): number {
         if (active) load()
       })
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('usePendingRequestCount: Realtime error', err ?? '(no details)')
+        if (status === 'SUBSCRIBED') {
+          if (subscribedOnce) {
+            // Reconnected after a drop — re-fetch so the badge count is fresh
+            if (active) load()
+          } else {
+            subscribedOnce = true
+          }
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('usePendingRequestCount: Realtime channel error', err ?? '(no details)')
+        } else if (status === 'TIMED_OUT') {
+          console.error('usePendingRequestCount: Realtime subscription timed out')
+        } else if (status === 'CLOSED') {
+          console.error('usePendingRequestCount: Realtime channel closed unexpectedly')
         }
       })
 

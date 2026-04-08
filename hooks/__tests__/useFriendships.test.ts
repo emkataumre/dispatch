@@ -292,4 +292,33 @@ describe('useFriendships', () => {
 
     expect(result.current.friends).toHaveLength(1)
   })
+
+  it('refetches and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
+    mockFetchFriendships.mockResolvedValue([])
+
+    const result = renderHook(() => useFriendships())
+    await flush()
+
+    expect(mockFetchFriendships).toHaveBeenCalledTimes(1)
+
+    const statusHandler = mockChannel.subscribe.mock.calls[0][0] as (status: string, err?: Error) => void
+
+    // Initial SUBSCRIBED — marks channel as subscribed-once, no refetch
+    act(() => { statusHandler('SUBSCRIBED') })
+    expect(mockFetchFriendships).toHaveBeenCalledTimes(1)
+    expect(result.current.error).toBeNull()
+
+    // Channel error — sets sticky error state
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    act(() => { statusHandler('CHANNEL_ERROR') })
+    expect(result.current.error).not.toBeNull()
+    consoleSpy.mockRestore()
+
+    // Reconnect — should re-fetch and clear error
+    await act(async () => { statusHandler('SUBSCRIBED') })
+    await flush()
+
+    expect(mockFetchFriendships).toHaveBeenCalledTimes(2)
+    expect(result.current.error).toBeNull()
+  })
 })

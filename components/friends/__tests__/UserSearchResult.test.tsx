@@ -122,6 +122,46 @@ describe('UserSearchResult', () => {
     expect(btn!.props.disabled).toBe(true)
   })
 
+  it('shows rowError below the row when onSendRequest rejects', async () => {
+    const props = makeProps('none')
+    props.onSendRequest.mockRejectedValue(new Error('network'))
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<UserSearchResult {...props} />) })
+
+    await act(async () => { findButtonWithLabel(root!, 'Add Friend')!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not send friend request. Try again.')).toBe(true)
+  })
+
+  it('shows rowError below the row when onAcceptRequest rejects', async () => {
+    const props = makeProps('pending_received')
+    props.onAcceptRequest.mockRejectedValue(new Error('network'))
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<UserSearchResult {...props} />) })
+
+    await act(async () => { findButtonWithLabel(root!, 'Accept')!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not accept request. Try again.')).toBe(true)
+  })
+
+  it('shows modalError inside cancel modal when onCancelRequest rejects', async () => {
+    const props = makeProps('pending_sent')
+    props.onCancelRequest.mockRejectedValue(new Error('network'))
+    let root: ReturnType<typeof create>
+    act(() => { root = create(<UserSearchResult {...props} />) })
+
+    // Open cancel modal
+    act(() => { findButtonWithLabel(root!, 'Pending')!.props.onPress() })
+
+    // Press cancel — should reject
+    await act(async () => { findButtonWithLabel(root!, 'Cancel request')!.props.onPress() })
+
+    const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
+    expect(texts.some((n) => String(n.props.children) === 'Could not cancel request. Try again.')).toBe(true)
+  })
+
   it('renders initials fallback when avatarUrl is null', () => {
     let root: ReturnType<typeof create>
     act(() => { root = create(<UserSearchResult {...makeProps('none')} />) })

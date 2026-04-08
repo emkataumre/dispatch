@@ -6,7 +6,6 @@ import {
   Linking,
   Platform,
   StyleSheet,
-  Alert,
 } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -113,6 +112,7 @@ export function PoiBottomSheet({
   onCancelJoin,
 }: Props) {
   const [dismissing, setDismissing] = useState(false);
+  const [dismissError, setDismissError] = useState<string | null>(null);
   const snapPoints = useMemo(() => ["82%", "100%"], []);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const ratingModalRef = useRef<PoiRatingModalHandle>(null);
@@ -274,25 +274,29 @@ export function PoiBottomSheet({
 
                 if (hasActiveBroadcastHere) {
                   return (
-                    <TouchableOpacity
-                      style={[styles.leaveButton, dismissing && styles.leaveButtonDimmed]}
-                      activeOpacity={0.85}
-                      disabled={dismissing}
-                      onPress={async () => {
-                        setDismissing(true);
-                        try {
-                          await dismissPresence(supabase, { presenceId: activePresence!.id });
-                          onDismissBroadcast();
-                        } catch (err) {
-                          console.error('dismissPresence failed:', err)
-                          Alert.alert('Error', 'Could not end broadcast. Try again.');
-                        } finally {
-                          setDismissing(false);
-                        }
-                      }}
-                    >
-                      <Text style={styles.leaveButtonText}>Leave</Text>
-                    </TouchableOpacity>
+                    <>
+                      <TouchableOpacity
+                        style={[styles.leaveButton, dismissing && styles.leaveButtonDimmed]}
+                        activeOpacity={0.85}
+                        disabled={dismissing}
+                        onPress={async () => {
+                          setDismissing(true);
+                          setDismissError(null);
+                          try {
+                            await dismissPresence(supabase, { presenceId: activePresence!.id });
+                            onDismissBroadcast();
+                          } catch (err) {
+                            console.error('dismissPresence failed:', err)
+                            setDismissError('Could not end broadcast. Try again.');
+                          } finally {
+                            setDismissing(false);
+                          }
+                        }}
+                      >
+                        <Text style={styles.leaveButtonText}>Leave</Text>
+                      </TouchableOpacity>
+                      {dismissError ? <Text style={styles.dismissErrorText}>{dismissError}</Text> : null}
+                    </>
                   );
                 }
 
@@ -563,6 +567,14 @@ const styles = StyleSheet.create({
   },
   leaveButtonDimmed: {
     opacity: 0.5,
+  },
+  dismissErrorText: {
+    fontSize: 12,
+    color: '#E51E1E',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
   },
   whosHereLabel: {
     paddingTop: 16,

@@ -23,6 +23,13 @@ export function useLivePresences(friendIds: string[]) {
   const [error, setError] = useState<string | null>(null)
   const profileCache = useRef<Map<string, ProfileData>>(new Map())
   const channelId = useRef(`live-presence-changes-${Date.now()}-${Math.random()}`)
+  // Tracks whether each channel has successfully subscribed, used to distinguish
+  // initial connect (initial load is in flight — no refetch needed) from reconnects.
+  const channelHealth = useRef({ community: false, friends: false })
+  // Monotonic: flips true on first SUBSCRIBED, never reset to false.
+  // Distinct from channelHealth so that a CHANNEL_ERROR doesn't erase the
+  // "we've connected before" signal and break the reconnect-refetch path.
+  const everSubscribed = useRef({ community: false, friends: false })
 
   // Stable string key for the dependency array — avoids re-running the effect
   // on every render when the caller passes a new array reference with the same IDs.
@@ -37,10 +44,9 @@ export function useLivePresences(friendIds: string[]) {
     }
 
     let active = true
-    // Tracks whether any channel has ever successfully subscribed.
-    // Used to distinguish the initial connect (don't refetch — initial load is in flight)
-    // from a reconnect after a drop or CHANNEL_ERROR (refetch to catch missed events).
-    let everSubscribed = false
+    // Reset health for this effect run — channels are recreated on every re-subscribe.
+    channelHealth.current = { community: false, friends: false }
+    everSubscribed.current = { community: false, friends: false }
     setError(null)
     setLoading(true)
 
@@ -119,46 +125,71 @@ export function useLivePresences(friendIds: string[]) {
           return [...prev, entry]
         })
       } catch (err) {
-        console.error('useLivePresences: Failed to process INSERT event', err)
+        console.error(
+          `useLivePresences: Failed to process INSERT for presence ${payload.new.id} / user ${payload.new.user_id}`,
+          err
+        )
       }
     }
 
     const handleUpdate = (payload: { new: Record<string, unknown> }) => {
       if (!active) return
-      const row = payload.new
-      if ((row.user_id as string) === userId) return
-      if (!!row.dismissed_at) {
-        setPresences((prev) => prev.filter((p) => p.id !== (row.id as string)))
-      } else {
-        // Non-dismissal UPDATE (e.g. message edit) — update in-place
-        setPresences((prev) =>
-          prev.map((p) =>
-            p.id === (row.id as string)
-              ? { ...p, message: (row.message as string | null) ?? null }
-              : p
+      try {
+        const row = payload.new
+        if ((row.user_id as string) === userId) return
+        if (!!row.dismissed_at) {
+          setPresences((prev) => prev.filter((p) => p.id !== (row.id as string)))
+        } else {
+          // Non-dismissal UPDATE (e.g. message edit) — update in-place
+          setPresences((prev) =>
+            prev.map((p) =>
+              p.id === (row.id as string)
+                ? { ...p, message: (row.message as string | null) ?? null }
+                : p
+            )
           )
+        }
+      } catch (err) {
+        console.error(
+          `useLivePresences: Failed to process UPDATE for presence ${payload.new.id} / user ${payload.new.user_id}`,
+          err
         )
       }
     }
 
-    const handleStatus = (status: string, err?: Error) => {
+    // Creates a status handler for the named channel.
+    // Each channel tracks its own health independently so that one channel reconnecting
+    // does not clear the error state set by a still-broken sibling channel.
+    const makeStatusHandler = (channelName: 'community' | 'friends') => (status: string, err?: Error) => {
       if (!active) return
       if (status === 'SUBSCRIBED') {
-        setError(null)
-        if (everSubscribed) {
-          // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events
+        const wasEverSubscribed = everSubscribed.current[channelName]
+        everSubscribed.current[channelName] = true
+        channelHealth.current[channelName] = true
+        if (wasEverSubscribed) {
+          // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events.
+          // fetchPresences() calls setError(null) on success, so we intentionally do NOT
+          // clear the error here — clearing it before the async fetch resolves would
+          // create a race where the banner dismisses even if the refetch fails.
           fetchPresences()
         } else {
-          everSubscribed = true
+          // Initial connect — no refetch needed. Clear any stale error if all channels healthy.
+          const allHealthy = channelHealth.current.community &&
+            (friendIds.length === 0 || channelHealth.current.friends)
+          if (allHealthy) setError(null)
         }
       } else if (status === 'TIMED_OUT') {
-        console.error('useLivePresences: Realtime subscription timed out')
+        channelHealth.current[channelName] = false
+        console.error(`useLivePresences [${channelName}]: Realtime subscription timed out`)
         setError('Live updates timed out — pull to refresh.')
       } else if (status === 'CHANNEL_ERROR') {
-        console.error('useLivePresences: Realtime channel error', err?.message ?? '(no details)')
+        channelHealth.current[channelName] = false
+        console.error(`useLivePresences [${channelName}]: Realtime channel error`, err?.message ?? '(no details)')
         setError('Live updates unavailable — pull to refresh.')
       } else if (status === 'CLOSED') {
-        console.error('useLivePresences: Realtime channel closed unexpectedly')
+        channelHealth.current[channelName] = false
+        console.error(`useLivePresences [${channelName}]: Realtime channel closed unexpectedly`)
+        setError('Live updates disconnected — pull to refresh.')
       }
     }
 
@@ -173,7 +204,7 @@ export function useLivePresences(friendIds: string[]) {
         event: 'UPDATE', schema: 'public', table: 'live_presence',
         filter: 'visible_to=eq.community',
       }, handleUpdate)
-      .subscribe(handleStatus)
+      .subscribe(makeStatusHandler('community'))
 
     // Channel 2: friends-only broadcasts — only created when the caller has accepted friends.
     // Filtered to visible_to==='friends' in the handler to avoid double-processing a friend's
@@ -193,7 +224,7 @@ export function useLivePresences(friendIds: string[]) {
           }, (payload) => {
             if ((payload.new as Record<string, unknown>).visible_to === 'friends') handleUpdate(payload)
           })
-          .subscribe(handleStatus)
+          .subscribe(makeStatusHandler('friends'))
       : null
 
     return () => {

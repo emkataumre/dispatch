@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { LivePresenceEntry } from '@/hooks/useLivePresences'
 import { PresenceJoin } from '@/lib/presenceJoins'
 import { PresenceBubble } from '@/components/map/PresenceBubble'
@@ -14,10 +14,12 @@ type Props = {
 
 export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPresence }: Props) {
   const [busy, setBusy] = useState(false)
+  const [errorText, setErrorText] = useState<string | null>(null)
   const firstName = presence.displayName.split(' ')[0]
 
   const handleJoin = async () => {
     setBusy(true)
+    setErrorText(null)
     try {
       await onJoin(presence.id)
     } catch (err) {
@@ -25,7 +27,7 @@ export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPr
       const message = err instanceof Error && err.message.includes('already joined')
         ? err.message
         : 'Could not join. Try again.'
-      Alert.alert('Error', message)
+      setErrorText(message)
     } finally {
       setBusy(false)
     }
@@ -33,17 +35,19 @@ export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPr
 
   const handleCancel = async (joinId: string) => {
     setBusy(true)
+    setErrorText(null)
     try {
       await onCancel(joinId)
     } catch (err) {
       console.error('PresenceCard.handleCancel failed:', err)
-      Alert.alert('Error', 'Could not cancel. Try again.')
+      setErrorText('Could not cancel. Try again.')
     } finally {
       setBusy(false)
     }
   }
 
   return (
+    <View>
     <View style={styles.row}>
       <PresenceBubble displayName={presence.displayName} avatarUrl={presence.avatarUrl} size={40} />
 
@@ -72,6 +76,8 @@ export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPr
           )}
         </View>
       )}
+    </View>
+    {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
     </View>
   )
 }
@@ -125,5 +131,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#E51E1E',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#E51E1E',
+    fontWeight: '500',
+    paddingBottom: 6,
   },
 })

@@ -111,6 +111,7 @@ jest.mock('@/components/map/PoiListView', () => ({ PoiListView: (props: any) => 
 import Mapbox from '@rnmapbox/maps'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
+import { useFriendships } from '@/hooks/useFriendships'
 import { useLivePresences } from '@/hooks/useLivePresences'
 import { usePresenceJoins } from '@/hooks/usePresenceJoins'
 import { PoiLayer } from '@/components/map/PoiLayer'
@@ -150,6 +151,7 @@ describe('MapScreen', () => {
       error: null,
       refetch: mockRefetchRatings,
     })
+    ;(useFriendships as jest.Mock).mockReturnValue({ friends: [], incomingRequests: [], outgoingRequestMap: new Map(), sendRequest: jest.fn(), acceptRequest: jest.fn(), declineRequest: jest.fn(), cancelRequest: jest.fn(), unfriend: jest.fn(), getStatusForUser: jest.fn(() => 'none'), getFriendshipId: jest.fn(() => null), error: null })
     ;(useLivePresences as jest.Mock).mockReturnValue({ presences: [], loading: false, error: null })
   })
 
@@ -371,6 +373,32 @@ describe('MapScreen', () => {
   })
 
   // Fix 5: verify setBroadcast/clearBroadcast wiring through PoiBottomSheet props
+  it('error banner shows friend list message when useFriendships errors', async () => {
+    ;(useFriendships as jest.Mock).mockReturnValue({
+      friends: [],
+      incomingRequests: [],
+      outgoingRequestMap: new Map(),
+      sendRequest: jest.fn(),
+      acceptRequest: jest.fn(),
+      declineRequest: jest.fn(),
+      cancelRequest: jest.fn(),
+      unfriend: jest.fn(),
+      getStatusForUser: jest.fn(() => 'none'),
+      getFriendshipId: jest.fn(() => null),
+      error: 'network error',
+    })
+    let root: ReturnType<typeof create>
+
+    await act(async () => { root = create(<MapScreen />) })
+
+    const hasMessage = root!.root
+      .findAllByType(Text)
+      .some((n: ReactTestInstance) =>
+        String(n.props.children).includes('Friend list unavailable')
+      )
+    expect(hasMessage).toBe(true)
+  })
+
   it('passes setBroadcast and clearBroadcast to PoiBottomSheet and they update activePresence', async () => {
     const mockPresence = {
       id: 'presence-1',

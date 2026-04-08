@@ -434,4 +434,178 @@ describe('useLivePresences', () => {
     expect(result.current.presences).toHaveLength(0)
     expect(mockSingleFn).not.toHaveBeenCalled()
   })
+
+  it('calls removeChannel for both channels on unmount when friendIds is non-empty', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    let unmount!: () => void
+    act(() => {
+      const renderer = create(
+        React.createElement(function TestComponent() {
+          useLivePresences(['user-5', 'user-6'])
+          return null
+        })
+      )
+      unmount = () => renderer.unmount()
+    })
+    await flush()
+
+    act(() => { unmount() })
+
+    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(2)
+  })
+
+  it('re-subscribes and creates friends channel when friendIds changes', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    let setFriendIds!: (ids: string[]) => void
+    function TestWrapper() {
+      const [ids, setIds] = React.useState<string[]>([])
+      setFriendIds = setIds
+      useLivePresences(ids)
+      return null
+    }
+
+    act(() => { create(React.createElement(TestWrapper)) })
+    await flush()
+
+    // Initial render with no friends: one community channel
+    expect((supabase as any).channel).toHaveBeenCalledTimes(1)
+    expect((supabase as any).removeChannel).not.toHaveBeenCalled()
+
+    // Change friendIds — effect should tear down old channel and create two new ones
+    await act(async () => { setFriendIds(['user-5']) })
+    await flush()
+
+    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(1)
+    expect((supabase as any).channel).toHaveBeenCalledTimes(3) // 1 original + 2 new
+  })
+
+  it('does not trigger fetchPresences on second channel initial SUBSCRIBED', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    renderHook(() => useLivePresences(['user-5']))
+    await flush()
+
+    // fetchPresences called exactly once on initial mount
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    // Capture the two status handlers passed to .subscribe()
+    const [communityHandler, friendsHandler] = mockSubscribeFn.mock.calls.map(
+      (c: unknown[]) => c[0] as (status: string) => void
+    )
+
+    // Fire initial SUBSCRIBED on community — should NOT trigger a refetch
+    act(() => { communityHandler('SUBSCRIBED') })
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    // Fire initial SUBSCRIBED on friends — should NOT trigger a refetch
+    act(() => { friendsHandler('SUBSCRIBED') })
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    // Fire SUBSCRIBED again on community (reconnect) — should refetch
+    await act(async () => { communityHandler('SUBSCRIBED') })
+    await flush()
+    expect(mockNeqFn).toHaveBeenCalledTimes(2)
+  })
+
+  it('refetches presences and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    const result = renderHook(() => useLivePresences([]))
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (status: string, err?: Error) => void
+
+    // Initial SUBSCRIBED — marks channel as ever-subscribed, no refetch
+    act(() => { communityHandler('SUBSCRIBED') })
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    // Channel error — sets error state
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    act(() => { communityHandler('CHANNEL_ERROR') })
+    expect(result.current.error).not.toBeNull()
+    consoleSpy.mockRestore()
+
+    // Reconnect — should re-fetch; error cleared only after fetchPresences resolves
+    await act(async () => { communityHandler('SUBSCRIBED') })
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(2)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('refetches after TIMED_OUT + SUBSCRIBED reconnect', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    const result = renderHook(() => useLivePresences([]))
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (status: string, err?: Error) => void
+
+    act(() => { communityHandler('SUBSCRIBED') })
+
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    act(() => { communityHandler('TIMED_OUT') })
+    expect(result.current.error).not.toBeNull()
+    consoleSpy.mockRestore()
+
+    await act(async () => { communityHandler('SUBSCRIBED') })
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(2)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('allHealthy gate: error cleared only when both channels have initial SUBSCRIBED', async () => {
+    // Initial fetch fails — sets an error
+    mockNeqFn.mockResolvedValue({ data: null, error: { message: 'network down' } })
+
+    const result = renderHook(() => useLivePresences(['user-5']))
+    await flush()
+
+    expect(result.current.error).toBe('network down')
+
+    const [communityHandler, friendsHandler] = mockSubscribeFn.mock.calls.map(
+      (c: unknown[]) => c[0] as (status: string) => void
+    )
+
+    // Community subscribes first (initial connect) — friends not yet healthy
+    act(() => { communityHandler('SUBSCRIBED') })
+    expect(result.current.error).toBe('network down') // error stays — not allHealthy yet
+
+    // Friends channel also subscribes — now allHealthy, error clears
+    act(() => { friendsHandler('SUBSCRIBED') })
+    expect(result.current.error).toBeNull()
+  })
+
+  it('friends channel UPDATE handler skips community-visible updates from friends', async () => {
+    mockNeqFn.mockResolvedValue({ data: [makeRow({ user_id: 'user-5', message: 'original' })], error: null })
+
+    const result = renderHook(() => useLivePresences(['user-5']))
+    await flush()
+
+    expect(result.current.presences).toHaveLength(1)
+    expect(result.current.presences[0].message).toBe('original')
+
+    // Friends channel UPDATE handler is the second UPDATE .on() call
+    const friendsUpdateHandler = mockChannelOnFn.mock.calls.filter(
+      (c: unknown[]) => (c[1] as { event: string }).event === 'UPDATE'
+    )[1]?.[2] as ((p: unknown) => void) | undefined
+    expect(friendsUpdateHandler).toBeDefined()
+
+    // community-visible UPDATE from a friend — should be ignored by the friends handler guard
+    act(() => {
+      friendsUpdateHandler!({
+        new: { id: 'presence-1', user_id: 'user-5', dismissed_at: null, message: 'updated', visible_to: 'community' },
+      })
+    })
+
+    // Message should NOT have changed (community updates travel through the community channel)
+    expect(result.current.presences[0].message).toBe('original')
+  })
 })

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -20,15 +19,17 @@ interface Props {
 export function FriendRow({ entry, onUnfriend }: Props) {
   const [modalVisible, setModalVisible] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [errorText, setErrorText] = useState<string | null>(null)
 
   const handleConfirmUnfriend = async () => {
     setBusy(true)
+    setErrorText(null)
     try {
       await onUnfriend()
       setModalVisible(false)
     } catch (err) {
       console.error('FriendRow unfriend:', err)
-      Alert.alert('Error', 'Could not unfriend. Try again.')
+      setErrorText('Could not unfriend. Try again.')
     } finally {
       setBusy(false)
     }
@@ -88,6 +89,8 @@ export function FriendRow({ entry, onUnfriend }: Props) {
             >
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
+
+            {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
           </View>
         </View>
       </Modal>
@@ -170,5 +173,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#131313',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#E51E1E',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 })
