@@ -135,4 +135,35 @@ describe('usePendingRequestCount', () => {
 
     expect(mockChannel.subscribe).toHaveBeenCalledWith(expect.any(Function))
   })
+
+  it('refetches count after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
+    const eq2 = jest.fn().mockResolvedValue({ count: 3, error: null })
+    const eq1 = jest.fn().mockReturnValue({ eq: eq2 })
+    mockSelect.mockReturnValue({ eq: eq1 })
+
+    const { result } = renderHook(() => usePendingRequestCount())
+    await flush()
+
+    expect(eq2).toHaveBeenCalledTimes(1)
+    expect(result.current).toBe(3)
+
+    const statusHandler = mockChannel.subscribe.mock.calls[0][0] as (status: string, err?: Error) => void
+
+    // Initial SUBSCRIBED — marks as subscribed-once, no refetch
+    act(() => { statusHandler('SUBSCRIBED') })
+    expect(eq2).toHaveBeenCalledTimes(1)
+
+    // Channel error
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    act(() => { statusHandler('CHANNEL_ERROR') })
+    consoleSpy.mockRestore()
+
+    // Reconnect — should re-fetch with updated count
+    eq2.mockResolvedValue({ count: 5, error: null })
+    await act(async () => { statusHandler('SUBSCRIBED') })
+    await flush()
+
+    expect(eq2).toHaveBeenCalledTimes(2)
+    expect(result.current).toBe(5)
+  })
 })

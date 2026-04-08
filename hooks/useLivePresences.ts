@@ -26,6 +26,10 @@ export function useLivePresences(friendIds: string[]) {
   // Tracks whether each channel has successfully subscribed, used to distinguish
   // initial connect (initial load is in flight — no refetch needed) from reconnects.
   const channelHealth = useRef({ community: false, friends: false })
+  // Monotonic: flips true on first SUBSCRIBED, never reset to false.
+  // Distinct from channelHealth so that a CHANNEL_ERROR doesn't erase the
+  // "we've connected before" signal and break the reconnect-refetch path.
+  const everSubscribed = useRef({ community: false, friends: false })
 
   // Stable string key for the dependency array — avoids re-running the effect
   // on every render when the caller passes a new array reference with the same IDs.
@@ -42,6 +46,7 @@ export function useLivePresences(friendIds: string[]) {
     let active = true
     // Reset health for this effect run — channels are recreated on every re-subscribe.
     channelHealth.current = { community: false, friends: false }
+    everSubscribed.current = { community: false, friends: false }
     setError(null)
     setLoading(true)
 
@@ -152,9 +157,10 @@ export function useLivePresences(friendIds: string[]) {
     const makeStatusHandler = (channelName: 'community' | 'friends') => (status: string, err?: Error) => {
       if (!active) return
       if (status === 'SUBSCRIBED') {
-        const wasHealthy = channelHealth.current[channelName]
+        const wasEverSubscribed = everSubscribed.current[channelName]
+        everSubscribed.current[channelName] = true
         channelHealth.current[channelName] = true
-        if (wasHealthy) {
+        if (wasEverSubscribed) {
           // Reconnected after a drop or CHANNEL_ERROR — re-fetch to catch missed events
           fetchPresences()
         }

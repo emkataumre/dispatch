@@ -101,6 +101,7 @@ export function useFriendships() {
     // RLS ensures only events for the current user's rows are delivered.
     // This keeps both parties in sync without a reload — e.g. the recipient
     // sees an incoming request immediately when the sender taps "Add Friend".
+    let subscribedOnce = false
     const channel = supabase
       .channel(channelId.current)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'friendships' }, () => {
@@ -113,7 +114,17 @@ export function useFriendships() {
         if (active) load()
       })
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        if (status === 'SUBSCRIBED') {
+          if (subscribedOnce) {
+            // Reconnected after a drop — re-fetch to catch missed events and clear error
+            if (active) {
+              setError(null)
+              load()
+            }
+          } else {
+            subscribedOnce = true
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('useFriendships: Realtime error', err ?? '(no details)')
           if (active) setError('Live updates disconnected. Pull to refresh.')
         }

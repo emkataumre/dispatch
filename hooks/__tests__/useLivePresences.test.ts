@@ -509,6 +509,34 @@ describe('useLivePresences', () => {
     expect(mockNeqFn).toHaveBeenCalledTimes(2)
   })
 
+  it('refetches presences and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null })
+
+    const result = renderHook(() => useLivePresences([]))
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (status: string, err?: Error) => void
+
+    // Initial SUBSCRIBED — marks channel as ever-subscribed, no refetch
+    act(() => { communityHandler('SUBSCRIBED') })
+    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+
+    // Channel error — sets error state
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    act(() => { communityHandler('CHANNEL_ERROR') })
+    expect(result.current.error).not.toBeNull()
+    consoleSpy.mockRestore()
+
+    // Reconnect — should re-fetch and clear error
+    await act(async () => { communityHandler('SUBSCRIBED') })
+    await flush()
+
+    expect(mockNeqFn).toHaveBeenCalledTimes(2)
+    expect(result.current.error).toBeNull()
+  })
+
   it('friends channel UPDATE handler skips community-visible updates from friends', async () => {
     mockNeqFn.mockResolvedValue({ data: [makeRow({ user_id: 'user-5', message: 'original' })], error: null })
 
