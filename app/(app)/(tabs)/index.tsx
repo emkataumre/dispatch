@@ -1,8 +1,9 @@
 import Mapbox from '@rnmapbox/maps'
 import { Ionicons } from '@expo/vector-icons'
 import * as Location from 'expo-location'
+import * as Notifications from 'expo-notifications'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
 import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
@@ -16,6 +17,9 @@ import { CategoryFilterBar } from '@/components/map/CategoryFilterBar'
 import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
 import { PoiListView } from '@/components/map/PoiListView'
 import { POI_CATEGORIES, PoiCategory } from '@/lib/poiCategories'
+import { registerGeofences } from '@/lib/backgroundGeofences'
+import { setupNotificationCategories } from '@/lib/notifications'
+import { BackgroundPermissionBanner } from '@/components/BackgroundPermissionBanner'
 
 type Poi = Tables<'pois'>
 
@@ -35,6 +39,7 @@ export default function MapScreen() {
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
   const [locationGranted, setLocationGranted] = useState(false)
+  const [backgroundGranted, setBackgroundGranted] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   const cameraRef = useRef<Mapbox.Camera>(null)
   const pendingCamera = useRef<Poi | null>(null)
@@ -48,6 +53,51 @@ export default function MapScreen() {
       .catch((err) => { console.error('Location permission request failed:', err) })
     return () => { active = false }
   }, [])
+
+  // Check if background location permission has already been granted.
+  useEffect(() => {
+    if (!locationGranted) return
+    Location.getBackgroundPermissionsAsync().then(({ status }) => {
+      setBackgroundGranted(status === 'granted')
+    })
+  }, [locationGranted])
+
+  // Register geofences once background permission + POIs are available.
+  useEffect(() => {
+    if (!backgroundGranted || pois.length === 0) return
+    let cancelled = false
+
+    async function setup() {
+      try {
+        await setupNotificationCategories()
+
+        const { status } = await Notifications.getPermissionsAsync()
+        if (status !== 'granted') {
+          await Notifications.requestPermissionsAsync()
+        }
+
+        let currentLocation: { latitude: number; longitude: number } | undefined
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low })
+          currentLocation = { latitude: loc.coords.latitude, longitude: loc.coords.longitude }
+        } catch {
+          // Fall back to Copenhagen city center (handled inside registerGeofences)
+        }
+
+        if (cancelled) return
+        await registerGeofences(
+          pois.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })),
+          currentLocation
+        )
+        console.log('[Geofences] registered', pois.length, 'POIs')
+      } catch (err) {
+        console.error('[Geofence registration] failed:', err)
+      }
+    }
+
+    setup()
+    return () => { cancelled = true }
+  }, [pois, backgroundGranted])
 
   const filteredPois = useMemo(
     () => pois.filter((p) => activeCategories[p.category] !== false),
@@ -149,6 +199,10 @@ export default function MapScreen() {
         <Pressable style={styles.locationButton} onPress={handleReturnToLocation} testID="return-to-location">
           <Ionicons name="locate" size={20} color="#fff" />
         </Pressable>
+      )}
+
+      {locationGranted && !backgroundGranted && (
+        <BackgroundPermissionBanner onGranted={() => setBackgroundGranted(true)} />
       )}
 
       {(poisError || ratingsError || presenceError || friendshipsError || joinsError || locationError) && (
