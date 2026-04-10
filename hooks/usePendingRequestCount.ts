@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { AppState } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -63,12 +64,9 @@ export function usePendingRequestCount(): number {
           } else {
             subscribedOnce = true
           }
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('usePendingRequestCount: Realtime channel error', err ?? '(no details)')
-        } else if (status === 'TIMED_OUT') {
-          console.error('usePendingRequestCount: Realtime subscription timed out')
-        } else if (status === 'CLOSED') {
-          console.error('usePendingRequestCount: Realtime channel closed unexpectedly')
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (AppState.currentState === 'background') return
+          console.error(`usePendingRequestCount: Realtime ${status}`, err ?? '(no details)')
         }
       })
 

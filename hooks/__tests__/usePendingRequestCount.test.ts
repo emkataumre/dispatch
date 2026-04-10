@@ -136,7 +136,7 @@ describe('usePendingRequestCount', () => {
     expect(mockChannel.subscribe).toHaveBeenCalledWith(expect.any(Function))
   })
 
-  it('does not log an error when CLOSED fires after cleanup (background/unmount)', async () => {
+  it('does not log an error when CLOSED fires after cleanup (unmount)', async () => {
     const eq2 = jest.fn().mockResolvedValue({ count: 0, error: null })
     const eq1 = jest.fn().mockReturnValue({ eq: eq2 })
     mockSelect.mockReturnValue({ eq: eq1 })
@@ -144,17 +144,37 @@ describe('usePendingRequestCount', () => {
     const { unmount } = renderHook(() => usePendingRequestCount())
     await flush()
 
-    // Capture handler before unmount
     const statusHandler = mockChannel.subscribe.mock.calls[0][0] as (status: string) => void
     act(() => { statusHandler('SUBSCRIBED') })
 
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    // Unmount sets active=false; then CLOSED fires (as it does via removeChannel in prod)
     unmount()
     act(() => { statusHandler('CLOSED') })
 
     expect(consoleSpy).not.toHaveBeenCalled()
     consoleSpy.mockRestore()
+  })
+
+  it('suppresses error when CHANNEL_ERROR fires while app is backgrounded', async () => {
+    const { AppState } = require('react-native')
+    const original = AppState.currentState
+    const eq2 = jest.fn().mockResolvedValue({ count: 0, error: null })
+    const eq1 = jest.fn().mockReturnValue({ eq: eq2 })
+    mockSelect.mockReturnValue({ eq: eq1 })
+
+    renderHook(() => usePendingRequestCount())
+    await flush()
+
+    const statusHandler = mockChannel.subscribe.mock.calls[0][0] as (status: string) => void
+    act(() => { statusHandler('SUBSCRIBED') })
+
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    AppState.currentState = 'background'
+    act(() => { statusHandler('CHANNEL_ERROR') })
+
+    expect(consoleSpy).not.toHaveBeenCalled()
+    consoleSpy.mockRestore()
+    AppState.currentState = original
   })
 
   it('refetches count after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {

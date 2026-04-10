@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { AppState } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -125,15 +126,11 @@ export function useFriendships() {
           } else {
             subscribedOnce = true
           }
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('useFriendships: Realtime channel error', err ?? '(no details)')
-          if (active) setError('Live updates disconnected — pull to refresh.')
-        } else if (status === 'TIMED_OUT') {
-          console.error('useFriendships: Realtime subscription timed out')
-          if (active) setError('Live updates disconnected — pull to refresh.')
-        } else if (status === 'CLOSED') {
-          console.error('useFriendships: Realtime channel closed unexpectedly')
-          if (active) setError('Live updates disconnected — pull to refresh.')
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // App backgrounding drops the WebSocket — suppress noise, reconnect handles recovery
+          if (AppState.currentState === 'background') return
+          console.error(`useFriendships: Realtime ${status}`, err ?? '(no details)')
+          setError('Live updates disconnected — pull to refresh.')
         }
       })
 

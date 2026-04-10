@@ -294,7 +294,7 @@ describe('useFriendships', () => {
     expect(result.current.friends).toHaveLength(1)
   })
 
-  it('does not log or set error when CLOSED fires after cleanup (background/unmount)', async () => {
+  it('does not log or set error when CLOSED fires after cleanup (unmount)', async () => {
     mockFetchFriendships.mockResolvedValue([])
 
     const { result, unmount } = renderHook(() => useFriendships())
@@ -304,13 +304,33 @@ describe('useFriendships', () => {
     act(() => { statusHandler('SUBSCRIBED') })
 
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    // Unmount sets active=false; then CLOSED fires (as it does via removeChannel in prod)
     unmount()
     act(() => { statusHandler('CLOSED') })
 
     expect(consoleSpy).not.toHaveBeenCalled()
     expect(result.current.error).toBeNull()
     consoleSpy.mockRestore()
+  })
+
+  it('suppresses error when CHANNEL_ERROR fires while app is backgrounded', async () => {
+    const { AppState } = require('react-native')
+    const original = AppState.currentState
+    mockFetchFriendships.mockResolvedValue([])
+
+    const { result } = renderHook(() => useFriendships())
+    await flush()
+
+    const statusHandler = mockChannel.subscribe.mock.calls[0][0] as (status: string, err?: Error) => void
+    act(() => { statusHandler('SUBSCRIBED') })
+
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    AppState.currentState = 'background'
+    act(() => { statusHandler('CHANNEL_ERROR') })
+
+    expect(consoleSpy).not.toHaveBeenCalled()
+    expect(result.current.error).toBeNull()
+    consoleSpy.mockRestore()
+    AppState.currentState = original
   })
 
   it('refetches and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
