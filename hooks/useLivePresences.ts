@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { AppState } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -178,17 +179,11 @@ export function useLivePresences(friendIds: string[]) {
             (friendIds.length === 0 || channelHealth.current.friends)
           if (allHealthy) setError(null)
         }
-      } else if (status === 'TIMED_OUT') {
+      } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
         channelHealth.current[channelName] = false
-        console.error(`useLivePresences [${channelName}]: Realtime subscription timed out`)
-        setError('Live updates timed out — pull to refresh.')
-      } else if (status === 'CHANNEL_ERROR') {
-        channelHealth.current[channelName] = false
-        console.error(`useLivePresences [${channelName}]: Realtime channel error`, err?.message ?? '(no details)')
-        setError('Live updates unavailable — pull to refresh.')
-      } else if (status === 'CLOSED') {
-        channelHealth.current[channelName] = false
-        console.error(`useLivePresences [${channelName}]: Realtime channel closed unexpectedly`)
+        // App backgrounding drops the WebSocket — suppress noise, reconnect handles recovery
+        if (AppState.currentState === 'background') return
+        console.error(`useLivePresences [${channelName}]: Realtime ${status}`, err?.message ?? '(no details)')
         setError('Live updates disconnected — pull to refresh.')
       }
     }
