@@ -37,14 +37,15 @@ import { useFriendships } from '../useFriendships'
 
 type HookResult<T> = { current: T }
 
-function renderHook<T>(useHook: () => T): HookResult<T> {
+function renderHook<T>(useHook: () => T): { result: HookResult<T>; unmount: () => void } {
   const result: HookResult<T> = { current: undefined as unknown as T }
+  let root: ReturnType<typeof create>
   function TestComponent() {
     result.current = useHook()
     return null
   }
-  act(() => { create(React.createElement(TestComponent)) })
-  return result
+  act(() => { root = create(React.createElement(TestComponent)) })
+  return { result, unmount: () => act(() => { root.unmount() }) }
 }
 
 async function flush() {
@@ -93,7 +94,7 @@ beforeEach(() => {
 describe('useFriendships', () => {
   it('returns empty state when no friendships exist', async () => {
     mockFetchFriendships.mockResolvedValue([])
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.friends).toEqual([])
@@ -105,7 +106,7 @@ describe('useFriendships', () => {
 
   it('correctly derives friends from accepted rows', async () => {
     mockFetchFriendships.mockResolvedValue([ACCEPTED_ROW])
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.friends).toHaveLength(1)
@@ -116,7 +117,7 @@ describe('useFriendships', () => {
 
   it('correctly derives incomingRequests from pending-received rows', async () => {
     mockFetchFriendships.mockResolvedValue([PENDING_RECEIVED_ROW])
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.incomingRequests).toHaveLength(1)
@@ -127,7 +128,7 @@ describe('useFriendships', () => {
 
   it('correctly populates outgoingRequestMap from pending-sent rows', async () => {
     mockFetchFriendships.mockResolvedValue([PENDING_SENT_ROW])
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.outgoingRequestMap.has(OTHER_ID)).toBe(true)
@@ -137,7 +138,7 @@ describe('useFriendships', () => {
 
   it('sets error state when fetchFriendships throws', async () => {
     mockFetchFriendships.mockRejectedValue(new Error('network error'))
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.error).toBe('network error')
@@ -146,7 +147,7 @@ describe('useFriendships', () => {
 
   it('returns empty state when not authenticated', async () => {
     mockUseAuth.mockReturnValue({ session: null })
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.friends).toEqual([])
@@ -158,7 +159,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([])
     mockLibSendRequest.mockResolvedValue({ ...PENDING_SENT_ROW, id: 'fs-new' })
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await act(async () => { await result.current.sendRequest(OTHER_ID) })
@@ -170,7 +171,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([])
     mockLibSendRequest.mockRejectedValue(new Error('Friend request already exists'))
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await expect(
@@ -184,7 +185,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([PENDING_SENT_ROW])
     mockLibCancelRequest.mockResolvedValue(undefined)
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.outgoingRequestMap.has(OTHER_ID)).toBe(true)
@@ -198,7 +199,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([PENDING_SENT_ROW])
     mockLibCancelRequest.mockRejectedValue(new Error('Request not found or already cancelled'))
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await expect(
@@ -212,7 +213,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([PENDING_RECEIVED_ROW])
     mockLibAcceptRequest.mockResolvedValue(undefined)
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.incomingRequests).toHaveLength(1)
@@ -229,7 +230,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([PENDING_RECEIVED_ROW])
     mockLibAcceptRequest.mockRejectedValue(new Error('update failed'))
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await expect(
@@ -243,7 +244,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([PENDING_RECEIVED_ROW])
     mockLibDeclineRequest.mockResolvedValue(undefined)
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await act(async () => { await result.current.declineRequest('fs-pending-received') })
@@ -255,7 +256,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([PENDING_RECEIVED_ROW])
     mockLibDeclineRequest.mockRejectedValue(new Error('not found'))
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await expect(
@@ -269,7 +270,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([ACCEPTED_ROW])
     mockLibUnfriend.mockResolvedValue(undefined)
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(result.current.friends).toHaveLength(1)
@@ -283,7 +284,7 @@ describe('useFriendships', () => {
     mockFetchFriendships.mockResolvedValue([ACCEPTED_ROW])
     mockLibUnfriend.mockRejectedValue(new Error('Friendship not found'))
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     await expect(
@@ -293,10 +294,29 @@ describe('useFriendships', () => {
     expect(result.current.friends).toHaveLength(1)
   })
 
+  it('does not log or set error when CLOSED fires after cleanup (background/unmount)', async () => {
+    mockFetchFriendships.mockResolvedValue([])
+
+    const { result, unmount } = renderHook(() => useFriendships())
+    await flush()
+
+    const statusHandler = mockChannel.subscribe.mock.calls[0][0] as (status: string, err?: Error) => void
+    act(() => { statusHandler('SUBSCRIBED') })
+
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+    // Unmount sets active=false; then CLOSED fires (as it does via removeChannel in prod)
+    unmount()
+    act(() => { statusHandler('CLOSED') })
+
+    expect(consoleSpy).not.toHaveBeenCalled()
+    expect(result.current.error).toBeNull()
+    consoleSpy.mockRestore()
+  })
+
   it('refetches and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
     mockFetchFriendships.mockResolvedValue([])
 
-    const result = renderHook(() => useFriendships())
+    const { result } = renderHook(() => useFriendships())
     await flush()
 
     expect(mockFetchFriendships).toHaveBeenCalledTimes(1)

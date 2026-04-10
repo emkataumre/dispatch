@@ -114,6 +114,7 @@ export function useFriendships() {
         if (active) load()
       })
       .subscribe((status, err) => {
+        if (!active) return
         if (status === 'SUBSCRIBED') {
           if (subscribedOnce) {
             // Reconnected after a drop — re-fetch to catch missed events and clear error

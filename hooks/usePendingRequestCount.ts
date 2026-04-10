@@ -55,6 +55,7 @@ export function usePendingRequestCount(): number {
         if (active) load()
       })
       .subscribe((status, err) => {
+        if (!active) return
         if (status === 'SUBSCRIBED') {
           if (subscribedOnce) {
             // Reconnected after a drop — re-fetch so the badge count is fresh
