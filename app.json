@@ -41,12 +41,16 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Dispatch uses your location to detect when you arrive at spots around Copenhagen and log your check-ins."
+          "locationAlwaysAndWhenInUsePermission": "Dispatch uses your location to detect when you arrive at spots around Copenhagen and log your check-ins.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-secure-store",
       "@rnmapbox/maps",
-      "expo-font"
+      "expo-font",
+      "expo-task-manager",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

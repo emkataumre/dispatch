@@ -37,10 +37,30 @@ jest.mock('@rnmapbox/maps', () => {
 
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  getBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'denied' })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
   getCurrentPositionAsync: jest.fn(() =>
     Promise.resolve({ coords: { latitude: 55.6761, longitude: 12.5683 } })
   ),
-  Accuracy: { High: 3 },
+  Accuracy: { High: 3, Low: 2 },
+}))
+
+jest.mock('expo-notifications', () => ({
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+}))
+
+jest.mock('@/lib/backgroundGeofences', () => ({
+  registerGeofences: jest.fn(() => Promise.resolve()),
+}))
+
+jest.mock('@/lib/notifications', () => ({
+  setupNotificationCategories: jest.fn(() => Promise.resolve()),
+  CHECKIN_CATEGORY: 'geofence-checkin',
+}))
+
+jest.mock('@/components/BackgroundPermissionBanner', () => ({
+  BackgroundPermissionBanner: () => null,
 }))
 
 // ---------------------------------------------------------------------------

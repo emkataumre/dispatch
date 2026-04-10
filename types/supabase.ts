@@ -39,6 +39,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      check_ins: {
+        Row: {
+          checked_in_at: string
+          id: string
+          poi_id: string
+          semester_id: string | null
+          user_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          id?: string
+          poi_id: string
+          semester_id?: string | null
+          user_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          id?: string
+          poi_id?: string
+          semester_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_poi_id_fkey"
+            columns: ["poi_id"]
+            isOneToOne: false
+            referencedRelation: "pois"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_semester_id_fkey"
+            columns: ["semester_id"]
+            isOneToOne: false
+            referencedRelation: "semesters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friendships: {
         Row: {
           addressee_id: string
