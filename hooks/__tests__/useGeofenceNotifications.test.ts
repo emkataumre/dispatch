@@ -124,6 +124,19 @@ describe('useGeofenceNotifications', () => {
     expect(insertCheckIn).not.toHaveBeenCalled()
   })
 
+  it('dismisses notification on dismiss action', async () => {
+    const Notifications = require('expo-notifications')
+    renderHook(() => useGeofenceNotifications())
+
+    await act(async () => {
+      await notificationResponseListener!(
+        makeNotificationResponse('dismiss-checkin', 'poi-1', 'Paludan')
+      )
+    })
+
+    expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith('notif-123')
+  })
+
   it('does not call insertCheckIn for non-geofence notification', async () => {
     renderHook(() => useGeofenceNotifications())
 
@@ -157,19 +170,19 @@ describe('useGeofenceNotifications', () => {
     expect(result.current.toast.message).toBe('Checked in at Paludan')
   })
 
-  it('does not throw when insertCheckIn fails', async () => {
+  it('shows error toast when insertCheckIn fails', async () => {
     ;(insertCheckIn as jest.Mock).mockRejectedValueOnce(new Error('Not authenticated'))
 
-    renderHook(() => useGeofenceNotifications())
+    const { result } = renderHook(() => useGeofenceNotifications())
 
-    // Should not throw
     await act(async () => {
       await notificationResponseListener!(
         makeNotificationResponse('confirm-checkin', 'poi-1', 'Paludan')
       )
     })
 
-    expect(insertCheckIn).toHaveBeenCalled()
+    expect(result.current.toast.visible).toBe(true)
+    expect(result.current.toast.message).toBe('Check-in failed — please try again')
   })
 
   it('does not call insertCheckIn when poiId is missing', async () => {
@@ -182,6 +195,31 @@ describe('useGeofenceNotifications', () => {
     })
 
     expect(insertCheckIn).not.toHaveBeenCalled()
+  })
+
+  it('does not call insertCheckIn when poiName is missing', async () => {
+    renderHook(() => useGeofenceNotifications())
+
+    await act(async () => {
+      await notificationResponseListener!(
+        makeNotificationResponse('confirm-checkin', 'poi-1', undefined)
+      )
+    })
+
+    expect(insertCheckIn).not.toHaveBeenCalled()
+  })
+
+  it('dismisses notification before attempting check-in', async () => {
+    const Notifications = require('expo-notifications')
+    renderHook(() => useGeofenceNotifications())
+
+    await act(async () => {
+      await notificationResponseListener!(
+        makeNotificationResponse('confirm-checkin', 'poi-1', 'Paludan')
+      )
+    })
+
+    expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith('notif-123')
   })
 
   it('removes listener on unmount', () => {

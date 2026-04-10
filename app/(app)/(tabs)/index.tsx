@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Location from 'expo-location'
 import * as Notifications from 'expo-notifications'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { PoiSlim } from '@/lib/backgroundGeofences'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Tables } from '@/types/supabase'
 import { usePois } from '@/hooks/usePois'
@@ -40,6 +41,7 @@ export default function MapScreen() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
   const [locationGranted, setLocationGranted] = useState(false)
   const [backgroundGranted, setBackgroundGranted] = useState(false)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   const cameraRef = useRef<Mapbox.Camera>(null)
   const pendingCamera = useRef<Poi | null>(null)
@@ -57,14 +59,24 @@ export default function MapScreen() {
   // Check if background location permission has already been granted.
   useEffect(() => {
     if (!locationGranted) return
-    Location.getBackgroundPermissionsAsync().then(({ status }) => {
-      setBackgroundGranted(status === 'granted')
-    })
+    Location.getBackgroundPermissionsAsync()
+      .then(({ status }) => { setBackgroundGranted(status === 'granted') })
+      .catch((err) => { console.error('[MapScreen] Failed to check background permissions:', err) })
   }, [locationGranted])
+
+  // Stable key for geofence registration — only re-register when the actual
+  // POI set changes, not on every pois array reference change. Without this,
+  // startGeofencingAsync would re-fire on every render, wiping OS transition
+  // state and potentially causing missed Enter events.
+  const poisSlim = useMemo<PoiSlim[]>(
+    () => pois.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pois.map((p) => p.id).join(',')]
+  )
 
   // Register geofences once background permission + POIs are available.
   useEffect(() => {
-    if (!backgroundGranted || pois.length === 0) return
+    if (!backgroundGranted || poisSlim.length === 0) return
     let cancelled = false
 
     async function setup() {
@@ -73,7 +85,11 @@ export default function MapScreen() {
 
         const { status } = await Notifications.getPermissionsAsync()
         if (status !== 'granted') {
-          await Notifications.requestPermissionsAsync()
+          const { status: newStatus } = await Notifications.requestPermissionsAsync()
+          if (newStatus !== 'granted') {
+            console.warn('[Geofences] Notification permission denied — skipping geofence registration')
+            return
+          }
         }
 
         let currentLocation: { latitude: number; longitude: number } | undefined
@@ -85,19 +101,20 @@ export default function MapScreen() {
         }
 
         if (cancelled) return
-        await registerGeofences(
-          pois.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })),
-          currentLocation
-        )
-        console.log('[Geofences] registered', pois.length, 'POIs')
+        await registerGeofences(poisSlim, currentLocation)
+        console.log('[Geofences] registered', poisSlim.length, 'POIs')
       } catch (err) {
         console.error('[Geofence registration] failed:', err)
+        if (!cancelled) {
+          setLocationError('Automatic check-ins could not be started — try restarting the app.')
+          setTimeout(() => setLocationError(null), 5000)
+        }
       }
     }
 
     setup()
     return () => { cancelled = true }
-  }, [pois, backgroundGranted])
+  }, [poisSlim, backgroundGranted])
 
   const filteredPois = useMemo(
     () => pois.filter((p) => activeCategories[p.category] !== false),
@@ -201,8 +218,11 @@ export default function MapScreen() {
         </Pressable>
       )}
 
-      {locationGranted && !backgroundGranted && (
-        <BackgroundPermissionBanner onGranted={() => setBackgroundGranted(true)} />
+      {locationGranted && !backgroundGranted && !bannerDismissed && (
+        <BackgroundPermissionBanner
+          onGranted={() => setBackgroundGranted(true)}
+          onDismiss={() => setBannerDismissed(true)}
+        />
       )}
 
       {(poisError || ratingsError || presenceError || friendshipsError || joinsError || locationError) && (

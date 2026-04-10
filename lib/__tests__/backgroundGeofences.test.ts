@@ -17,6 +17,7 @@ jest.mock('expo-location', () => ({
 }))
 jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn().mockResolvedValue('notif-id'),
+  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }))
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn().mockResolvedValue(null),
@@ -24,6 +25,19 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }))
 jest.mock('../notifications', () => ({
   CHECKIN_CATEGORY: 'geofence-checkin',
+}))
+jest.mock('../supabase', () => ({
+  supabase: {
+    from: jest.fn(() => ({
+      select: jest.fn(() => Promise.resolve({
+        data: [
+          { id: 'poi-1', name: 'Alpha', lat: 55.676, lng: 12.568 },
+          { id: 'poi-2', name: 'Bravo', lat: 55.680, lng: 12.570 },
+        ],
+        error: null,
+      })),
+    })),
+  },
 }))
 
 const SAMPLE_POIS: PoiSlim[] = [
@@ -132,6 +146,30 @@ describe('geofence task handler', () => {
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled()
   })
 
+  it('does not schedule notification when error is provided', async () => {
+    await handler({
+      data: {
+        eventType: 1,
+        region: { identifier: 'poi-1::Paludan' },
+      },
+      error: { message: 'Location unavailable' },
+    })
+
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled()
+  })
+
+  it('does not schedule notification when region.identifier is missing', async () => {
+    await handler({
+      data: {
+        eventType: 1,
+        region: { identifier: '' },
+      },
+      error: null,
+    })
+
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled()
+  })
+
   it('suppresses notification within cooldown window', async () => {
     AsyncStorage.getItem.mockResolvedValue((Date.now() - 1000).toString()) // 1 second ago
 
@@ -179,7 +217,7 @@ describe('geofence task handler', () => {
     )
   })
 
-  it('sets cooldown in AsyncStorage after firing', async () => {
+  it('sets cooldown only after successful notification', async () => {
     await handler({
       data: {
         eventType: 1,
@@ -188,10 +226,159 @@ describe('geofence task handler', () => {
       error: null,
     })
 
+    // Verify setCooldown was called after scheduleNotificationAsync
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled()
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       'geofence-cooldown:poi-1',
       expect.any(String)
     )
+  })
+
+  it('does not set cooldown when notification fails', async () => {
+    Notifications.scheduleNotificationAsync.mockRejectedValueOnce(new Error('Channel not found'))
+
+    await handler({
+      data: {
+        eventType: 1,
+        region: { identifier: 'poi-1::Paludan' },
+      },
+      error: null,
+    })
+
+    // setCooldown (setItem for cooldown key) should NOT have been called
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+      'geofence-cooldown:poi-1',
+      expect.any(String)
+    )
+  })
+
+  it('allows notification when AsyncStorage.getItem fails (cooldown check)', async () => {
+    AsyncStorage.getItem.mockRejectedValueOnce(new Error('Storage full'))
+
+    await handler({
+      data: {
+        eventType: 1,
+        region: { identifier: 'poi-1::Paludan' },
+      },
+      error: null,
+    })
+
+    // Should allow the notification rather than silently blocking
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled()
+  })
+})
+
+describe('SLC task handler', () => {
+  const TaskManager = require('expo-task-manager')
+  const AsyncStorage = require('@react-native-async-storage/async-storage')
+  const Location = require('expo-location')
+  const originalOS = Platform.OS
+
+  const slcCall = TaskManager.defineTask.mock.calls.find(
+    (c: [string, unknown]) => c[0] === 'dispatch-slc-task'
+  )
+  const handler = slcCall![1] as (args: { data: unknown; error: unknown }) => Promise<void>
+
+  beforeEach(() => {
+    AsyncStorage.getItem.mockReset()
+    AsyncStorage.setItem.mockReset()
+    AsyncStorage.getItem.mockResolvedValue(null)
+    AsyncStorage.setItem.mockResolvedValue(undefined)
+    Location.startGeofencingAsync.mockClear()
+  })
+
+  afterEach(() => {
+    Object.defineProperty(Platform, 'OS', { value: originalOS })
+  })
+
+  it('skips re-registration on Android', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android' })
+
+    await handler({
+      data: { locations: [{ coords: { latitude: 55.676, longitude: 12.568 } }] },
+      error: null,
+    })
+
+    expect(Location.startGeofencingAsync).not.toHaveBeenCalled()
+  })
+
+  it('skips when locations array is empty', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios' })
+
+    await handler({
+      data: { locations: [] },
+      error: null,
+    })
+
+    expect(Location.startGeofencingAsync).not.toHaveBeenCalled()
+  })
+
+  it('skips when distance moved is below threshold', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios' })
+
+    // Stored location is very close to the new one (< 500m)
+    AsyncStorage.getItem.mockResolvedValue(JSON.stringify({ latitude: 55.676, longitude: 12.568 }))
+
+    await handler({
+      data: { locations: [{ coords: { latitude: 55.6761, longitude: 12.5681 } }] },
+      error: null,
+    })
+
+    expect(Location.startGeofencingAsync).not.toHaveBeenCalled()
+  })
+
+  it('re-registers and updates stored location when distance exceeds threshold', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios' })
+
+    // Stored location is far from the new one (> 500m)
+    AsyncStorage.getItem.mockResolvedValue(JSON.stringify({ latitude: 55.670, longitude: 12.560 }))
+
+    await handler({
+      data: { locations: [{ coords: { latitude: 55.690, longitude: 12.590 } }] },
+      error: null,
+    })
+
+    expect(Location.startGeofencingAsync).toHaveBeenCalled()
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'geofence-slc-last-loc',
+      JSON.stringify({ latitude: 55.690, longitude: 12.590 })
+    )
+  })
+
+  it('does not throw when error parameter is provided', async () => {
+    await handler({
+      data: { locations: [] },
+      error: { message: 'something broke' },
+    })
+
+    expect(Location.startGeofencingAsync).not.toHaveBeenCalled()
+  })
+})
+
+describe('stopGeofences', () => {
+  const Location = require('expo-location')
+
+  beforeEach(() => {
+    Location.stopGeofencingAsync.mockClear()
+    Location.stopLocationUpdatesAsync.mockClear()
+    Location.stopGeofencingAsync.mockResolvedValue(undefined)
+    Location.stopLocationUpdatesAsync.mockResolvedValue(undefined)
+  })
+
+  it('calls both stop functions', async () => {
+    const { stopGeofences } = require('../backgroundGeofences')
+    await stopGeofences()
+
+    expect(Location.stopGeofencingAsync).toHaveBeenCalledWith('dispatch-geofence-task')
+    expect(Location.stopLocationUpdatesAsync).toHaveBeenCalledWith('dispatch-slc-task')
+  })
+
+  it('does not throw when tasks are not registered', async () => {
+    Location.stopGeofencingAsync.mockRejectedValue(new Error('Task not registered'))
+    Location.stopLocationUpdatesAsync.mockRejectedValue(new Error('Task not found'))
+
+    const { stopGeofences } = require('../backgroundGeofences')
+    await expect(stopGeofences()).resolves.toBeUndefined()
   })
 })
 
@@ -213,7 +400,6 @@ describe('registerGeofences', () => {
 
   it('registers all POIs on Android (limit 100 > 63 POIs)', async () => {
     Object.defineProperty(Platform, 'OS', { value: 'android' })
-    // Re-import to pick up the new Platform.OS
     const { registerGeofences } = require('../backgroundGeofences')
 
     // Generate 63 POIs — all fit under Android's 100 limit
@@ -245,5 +431,41 @@ describe('registerGeofences', () => {
 
     const regions = Location.startGeofencingAsync.mock.calls[0][1]
     expect(regions).toHaveLength(20)
+  })
+
+  it('uses Copenhagen center when no currentLocation provided', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios' })
+    const { registerGeofences } = require('../backgroundGeofences')
+
+    const pois: PoiSlim[] = Array.from({ length: 5 }, (_, i) => ({
+      id: `poi-${i}`,
+      name: `Place ${i}`,
+      lat: 55.676 + i * 0.01,
+      lng: 12.568 + i * 0.01,
+    }))
+
+    await registerGeofences(pois) // no second argument
+
+    expect(Location.startGeofencingAsync).toHaveBeenCalled()
+    const regions = Location.startGeofencingAsync.mock.calls[0][1]
+    expect(regions).toHaveLength(5)
+  })
+
+  it('sets notifyOnEnter: true and notifyOnExit: false on each region', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios' })
+    const { registerGeofences } = require('../backgroundGeofences')
+
+    const pois: PoiSlim[] = [
+      { id: 'poi-1', name: 'Test', lat: 55.676, lng: 12.568 },
+    ]
+
+    await registerGeofences(pois, { latitude: 55.676, longitude: 12.568 })
+
+    const regions = Location.startGeofencingAsync.mock.calls[0][1]
+    expect(regions[0]).toEqual(expect.objectContaining({
+      notifyOnEnter: true,
+      notifyOnExit: false,
+      radius: 100,
+    }))
   })
 })

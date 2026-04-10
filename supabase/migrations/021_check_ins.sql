@@ -1,5 +1,6 @@
 -- Check-ins — immutable append-only log of passive geofence check-ins.
--- No UPDATE or DELETE policies: Postgres denies them by default when RLS is enabled.
+-- No UPDATE or DELETE policies defined — RLS implicitly denies these operations
+-- for authenticated client requests. The service_role key bypasses RLS.
 
 create table public.check_ins (
   id uuid primary key default gen_random_uuid(),

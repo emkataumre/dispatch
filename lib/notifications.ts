@@ -29,7 +29,11 @@ export async function setupNotificationCategories(): Promise<void> {
   ])
 }
 
-// Ensure notifications display when the app is in the foreground.
+// Module-level side effect (intentional): setNotificationHandler must be
+// registered early, before any notification arrives. Imported via index.js to
+// ensure registration in both foreground and headless contexts. Currently
+// applies to all categories — scope to categoryIdentifier if additional
+// notification types are added in Phase 7.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,

@@ -41,21 +41,21 @@ export type Database = {
     Tables: {
       check_ins: {
         Row: {
-          checked_in_at: string | null
+          checked_in_at: string
           id: string
           poi_id: string
           semester_id: string | null
           user_id: string
         }
         Insert: {
-          checked_in_at?: string | null
+          checked_in_at?: string
           id?: string
           poi_id: string
           semester_id?: string | null
           user_id: string
         }
         Update: {
-          checked_in_at?: string | null
+          checked_in_at?: string
           id?: string
           poi_id?: string
           semester_id?: string | null

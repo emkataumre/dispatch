@@ -13,13 +13,15 @@ import { CHECKIN_CATEGORY } from '@/lib/notifications'
 export const GEOFENCE_TASK = 'dispatch-geofence-task'
 export const SLC_TASK = 'dispatch-slc-task'
 
-const COOLDOWN_MS = 2 * 60 * 60 * 1000 // 2 hours
-const GEOFENCE_RADIUS = 100 // metres
+const COOLDOWN_MS = 2 * 60 * 60 * 1000
+const GEOFENCE_RADIUS = 100
 const COPENHAGEN_CENTER = { latitude: 55.6761, longitude: 12.5683 }
-const SLC_REREGISTER_THRESHOLD = 500 // metres — only re-register geofences when user moves 500m+
+const SLC_REREGISTER_THRESHOLD = 500
 const SLC_LAST_LOC_KEY = 'geofence-slc-last-loc'
 
-// iOS hard cap is 20 regions. Android cap is 100; all 64 V1 POIs fit.
+// iOS CLLocationManager hard cap: 20 regions. Google Play Services cap: 100.
+// If POI count exceeds ANDROID_GEOFENCE_LIMIT, the Android early-return in the
+// background location task must be removed to enable re-registration on Android.
 const IOS_GEOFENCE_LIMIT = 20
 const ANDROID_GEOFENCE_LIMIT = 100
 
@@ -55,13 +57,22 @@ export function getNearestPois(
 // ---------------------------------------------------------------------------
 
 async function isCoolingDown(poiId: string): Promise<boolean> {
-  const stored = await AsyncStorage.getItem(`geofence-cooldown:${poiId}`)
-  if (!stored) return false
-  return Date.now() - parseInt(stored, 10) < COOLDOWN_MS
+  try {
+    const stored = await AsyncStorage.getItem(`geofence-cooldown:${poiId}`)
+    if (!stored) return false
+    return Date.now() - parseInt(stored, 10) < COOLDOWN_MS
+  } catch {
+    // If AsyncStorage fails, allow the notification rather than silently blocking.
+    return false
+  }
 }
 
 async function setCooldown(poiId: string): Promise<void> {
-  await AsyncStorage.setItem(`geofence-cooldown:${poiId}`, Date.now().toString())
+  try {
+    await AsyncStorage.setItem(`geofence-cooldown:${poiId}`, Date.now().toString())
+  } catch (err) {
+    console.error('[Geofence] failed to set cooldown:', err)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -84,9 +95,15 @@ export async function registerGeofences(
   pois: PoiSlim[],
   currentLocation?: { latitude: number; longitude: number }
 ): Promise<void> {
-  // Stop any stale SLC task from a previous session to prevent
-  // re-registration from wiping the geofence transition state.
-  try { await Location.stopLocationUpdatesAsync(SLC_TASK) } catch { /* not registered */ }
+  // Stop any stale location-update task from a previous session. A leftover
+  // task could trigger re-registration (via the SLC_TASK callback) while we
+  // are in the middle of setting up fresh geofence regions, overwriting them.
+  try { await Location.stopLocationUpdatesAsync(SLC_TASK) } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (!msg.includes('not registered') && !msg.includes('not found')) {
+      console.error('[registerGeofences] unexpected error stopping stale SLC task:', err)
+    }
+  }
 
   const loc = currentLocation ?? COPENHAGEN_CENTER
   const limit = getGeofenceLimit()
@@ -98,6 +115,8 @@ export async function registerGeofences(
   // Start background location monitoring. On Android, the foreground service
   // keeps the process alive so geofence PendingIntents are delivered in the
   // background. On iOS, this also drives nearest-20 re-registration.
+  // deferredUpdatesInterval: 0 means updates are delivered as soon as the
+  // distance threshold is reached, not on a timer.
   await Location.startLocationUpdatesAsync(SLC_TASK, {
     accuracy: Location.Accuracy.Low,
     activityType: Location.ActivityType.Other,
@@ -114,8 +133,18 @@ export async function registerGeofences(
 }
 
 export async function stopGeofences(): Promise<void> {
-  try { await Location.stopGeofencingAsync(GEOFENCE_TASK) } catch { /* not registered */ }
-  try { await Location.stopLocationUpdatesAsync(SLC_TASK) } catch { /* not registered */ }
+  try { await Location.stopGeofencingAsync(GEOFENCE_TASK) } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (!msg.includes('not registered') && !msg.includes('not found')) {
+      console.error('[stopGeofences] unexpected error stopping geofence task:', err)
+    }
+  }
+  try { await Location.stopLocationUpdatesAsync(SLC_TASK) } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (!msg.includes('not registered') && !msg.includes('not found')) {
+      console.error('[stopGeofences] unexpected error stopping SLC task:', err)
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +169,6 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
   const poiName = nameParts.join('::')
 
   if (await isCoolingDown(poiId)) return
-  await setCooldown(poiId)
 
   try {
     await Notifications.scheduleNotificationAsync({
@@ -154,13 +182,18 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
         ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: 'checkin' }
         : null,
     })
+    // Set cooldown only after successful notification — a transient failure
+    // should not burn the 2h window and silently block future prompts.
+    await setCooldown(poiId)
   } catch (err) {
     console.error('[Geofence task] failed to schedule notification:', err)
   }
 })
 
 // ---------------------------------------------------------------------------
-// Background task: significant location change → re-register nearest N
+// Background task: low-accuracy location updates → re-register nearest N
+// Uses startLocationUpdatesAsync with deferredUpdatesDistance to approximate
+// significant-location-change behavior. Not the iOS CLLocationManager SLC API.
 // ---------------------------------------------------------------------------
 
 TaskManager.defineTask(SLC_TASK, async ({ data, error }) => {
@@ -169,10 +202,11 @@ TaskManager.defineTask(SLC_TASK, async ({ data, error }) => {
     return
   }
 
-  // On Android, all 64 V1 POIs fit within the 100-region limit.
-  // The SLC task only exists to keep the foreground service alive —
-  // no re-registration needed. On iOS (20-region limit), re-register
-  // the nearest 20 when the user moves 500m+.
+  // On Android, the 100-region limit accommodates all V1 POIs. The background
+  // location task only exists to keep the foreground service alive — no
+  // re-registration needed. If POI count exceeds ANDROID_GEOFENCE_LIMIT, this
+  // early-return must be removed to enable re-registration on Android as well.
+  // On iOS (20-region limit), re-register the nearest 20 when the user moves 500m+.
   if (Platform.OS === 'android') return
 
   const { locations } = data as { locations: Location.LocationObject[] }
@@ -192,9 +226,14 @@ TaskManager.defineTask(SLC_TASK, async ({ data, error }) => {
     }
 
     const { supabase } = require('@/lib/supabase')
-    const { data: pois } = await supabase
+    const { data: pois, error: poisError } = await supabase
       .from('pois')
       .select('id, name, lat, lng')
+
+    if (poisError) {
+      console.error('[SLC task] failed to fetch POIs:', poisError.message)
+      return
+    }
 
     if (!pois || pois.length === 0) return
 

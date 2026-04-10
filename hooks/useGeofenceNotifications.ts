@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '@/lib/supabase'
 import { insertCheckIn } from '@/lib/checkIns'
-import { ACTION_CONFIRM, CHECKIN_CATEGORY } from '@/lib/notifications'
+import { ACTION_CONFIRM, ACTION_DISMISS, CHECKIN_CATEGORY } from '@/lib/notifications'
 
 export type ToastState = {
   visible: boolean
@@ -28,7 +28,15 @@ export function useGeofenceNotifications() {
         const category = notification.request.content.categoryIdentifier
         if (category !== CHECKIN_CATEGORY) return
 
-        // "No" button — do nothing
+        // Dismiss the notification on any action to prevent stale banners —
+        // on Android, notification actions do not always auto-dismiss.
+        await Notifications.dismissNotificationAsync(
+          notification.request.identifier
+        )
+
+        // Any action other than explicit confirm or default tap (banner tap) is
+        // ignored — e.g. ACTION_DISMISS ("No" button). The notification was
+        // already dismissed above.
         if (
           actionIdentifier !== ACTION_CONFIRM &&
           actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER
@@ -44,16 +52,12 @@ export function useGeofenceNotifications() {
           return
         }
 
-        // Dismiss immediately so the user can't tap it twice
-        await Notifications.dismissNotificationAsync(
-          notification.request.identifier
-        )
-
         try {
           await insertCheckIn(supabase, { poiId: data.poiId })
           showToast(`Checked in at ${data.poiName}`)
         } catch (err) {
           console.error('[Geofence notification] Check-in failed:', err)
+          showToast('Check-in failed — please try again')
         }
       }
     )
