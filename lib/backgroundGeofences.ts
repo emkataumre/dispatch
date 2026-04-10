@@ -149,9 +149,10 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
         body: 'Are you here? Tap to check in!',
         categoryIdentifier: CHECKIN_CATEGORY,
         data: { poiId, poiName },
-        android: { channelId: 'checkin' },
       },
-      trigger: null,
+      trigger: Platform.OS === 'android'
+        ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: 'checkin' }
+        : null,
     })
   } catch (err) {
     console.error('[Geofence task] failed to schedule notification:', err)

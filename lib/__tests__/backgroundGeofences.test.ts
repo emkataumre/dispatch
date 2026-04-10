@@ -115,9 +115,8 @@ describe('geofence task handler', () => {
         body: 'Are you here? Tap to check in!',
         categoryIdentifier: 'geofence-checkin',
         data: { poiId: 'poi-1', poiName: 'Paludan Bogcafé' },
-        android: { channelId: 'checkin' },
       },
-      trigger: null,
+      trigger: null, // Platform.OS defaults to 'ios' in jest; Android uses TIME_INTERVAL trigger with channelId
     })
   })
 
