@@ -6,6 +6,23 @@ const mockUseAuth = jest.fn()
 const mockJoinPresence = jest.fn()
 const mockCancelJoin = jest.fn()
 
+// Realtime channel mock — captured so tests can invoke callbacks directly
+let mockSubscribeCallback: ((status: string, err?: unknown) => void) | null = null
+let mockUpdateCallback: ((payload: { new: unknown }) => void) | null = null
+
+const mockChannel = {
+  on: jest.fn().mockImplementation((_event: string, _filter: unknown, cb: (payload: { new: unknown }) => void) => {
+    mockUpdateCallback = cb
+    return mockChannel
+  }),
+  subscribe: jest.fn().mockImplementation((cb: (status: string, err?: unknown) => void) => {
+    mockSubscribeCallback = cb
+    return mockChannel
+  }),
+}
+
+const mockRemoveChannel = jest.fn()
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
@@ -13,6 +30,8 @@ jest.mock('@/lib/supabase', () => ({
         eq: mockEqFn,
       })),
     })),
+    channel: jest.fn(() => mockChannel),
+    removeChannel: jest.fn(),
   },
 }))
 
@@ -69,6 +88,10 @@ const MOCK_JOIN_ROW_2 = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockUseAuth.mockReturnValue({ session: { user: { id: 'user-1' } } })
+  mockSubscribeCallback = null
+  mockUpdateCallback = null
+  const AppState = require('react-native').AppState
+  AppState.currentState = 'active'
 })
 
 describe('usePresenceJoins', () => {
@@ -228,5 +251,152 @@ describe('usePresenceJoins', () => {
     await flush()
 
     expect(result.current.getJoinForPresence('presence-999')).toBeUndefined()
+  })
+
+  it('Realtime UPDATE event updates the matching join in state', async () => {
+    mockEqFn.mockResolvedValue({ data: [MOCK_JOIN_ROW], error: null })
+
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+
+    expect(result.current.joins[0].confirmed).toBe(false)
+
+    const confirmedRow = { ...MOCK_JOIN_ROW, confirmed: true }
+    await act(async () => {
+      mockUpdateCallback!({ new: confirmedRow })
+    })
+
+    expect(result.current.joins[0].confirmed).toBe(true)
+  })
+
+  it('Realtime UPDATE event does not affect other joins', async () => {
+    mockEqFn.mockResolvedValue({ data: [MOCK_JOIN_ROW, MOCK_JOIN_ROW_2], error: null })
+
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+
+    const confirmedRow = { ...MOCK_JOIN_ROW, confirmed: true }
+    await act(async () => {
+      mockUpdateCallback!({ new: confirmedRow })
+    })
+
+    expect(result.current.joins).toHaveLength(2)
+    expect(result.current.joins.find((j) => j.id === 'join-1')!.confirmed).toBe(true)
+    expect(result.current.joins.find((j) => j.id === 'join-2')!.confirmed).toBe(false)
+  })
+
+  it('subscribes to UPDATE events filtered by joiner_user_id', async () => {
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+    renderHook(() => usePresenceJoins())
+    await flush()
+    expect(mockChannel.on).toHaveBeenCalledWith(
+      'postgres_changes',
+      expect.objectContaining({
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'presence_joins',
+        filter: expect.stringContaining('joiner_user_id=eq.user-1'),
+      }),
+      expect.any(Function)
+    )
+  })
+
+  it('Realtime UPDATE event for unknown join id does not mutate state', async () => {
+    mockEqFn.mockResolvedValue({ data: [MOCK_JOIN_ROW], error: null })
+    const result = renderHook(() => usePresenceJoins())
+    await flush()
+    const unknownRow = { ...MOCK_JOIN_ROW, id: 'join-unknown', confirmed: true }
+    await act(async () => {
+      mockUpdateCallback!({ new: unknownRow })
+    })
+    expect(result.current.joins).toHaveLength(1)
+    expect(result.current.joins[0]).toEqual(MOCK_JOIN_ROW)
+  })
+
+  it('suppresses Realtime error when app is backgrounded', async () => {
+    const AppState = require('react-native').AppState
+    AppState.currentState = 'background'
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+    renderHook(() => usePresenceJoins())
+    await flush()
+
+    act(() => { mockSubscribeCallback!('CHANNEL_ERROR') })
+
+    expect(consoleSpy).not.toHaveBeenCalled()
+
+    AppState.currentState = 'active'
+    consoleSpy.mockRestore()
+  })
+
+  it('logs Realtime error when app is active', async () => {
+    const AppState = require('react-native').AppState
+    AppState.currentState = 'active'
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+    renderHook(() => usePresenceJoins())
+    await flush()
+
+    act(() => { mockSubscribeCallback!('CHANNEL_ERROR', new Error('ws error')) })
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('CHANNEL_ERROR'),
+      expect.any(Error)
+    )
+    consoleSpy.mockRestore()
+  })
+
+  it('suppresses TIMED_OUT status when app is backgrounded', async () => {
+    const AppState = require('react-native').AppState
+    AppState.currentState = 'background'
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+    renderHook(() => usePresenceJoins())
+    await flush()
+
+    act(() => { mockSubscribeCallback!('TIMED_OUT') })
+
+    expect(consoleSpy).not.toHaveBeenCalled()
+
+    consoleSpy.mockRestore()
+  })
+
+  it('logs TIMED_OUT status when app is active', async () => {
+    const AppState = require('react-native').AppState
+    AppState.currentState = 'active'
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+    renderHook(() => usePresenceJoins())
+    await flush()
+
+    act(() => { mockSubscribeCallback!('TIMED_OUT', new Error('timeout')) })
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('TIMED_OUT'),
+      expect.any(Error)
+    )
+    consoleSpy.mockRestore()
+  })
+
+  it('removes Realtime channel on unmount', async () => {
+    mockEqFn.mockResolvedValue({ data: [], error: null })
+
+    let renderer: ReturnType<typeof create>
+    act(() => {
+      renderer = create(React.createElement(function TestUnmount() {
+        usePresenceJoins()
+        return null
+      }))
+    })
+    await flush()
+
+    act(() => { renderer!.unmount() })
+
+    const { supabase } = require('@/lib/supabase')
+    expect(supabase.removeChannel).toHaveBeenCalled()
   })
 })

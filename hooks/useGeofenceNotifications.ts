@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '@/lib/supabase'
 import { insertCheckIn } from '@/lib/checkIns'
+import { confirmJoins } from '@/lib/presenceJoins'
 import { ACTION_CONFIRM, ACTION_DISMISS, CHECKIN_CATEGORY } from '@/lib/notifications'
 
 export type ToastState = {
@@ -12,6 +13,7 @@ export type ToastState = {
 export function useGeofenceNotifications() {
   const [toast, setToast] = useState<ToastState>({ visible: false, message: '' })
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isMounted = useRef(true)
 
   const showToast = useCallback((message: string) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -19,6 +21,7 @@ export function useGeofenceNotifications() {
     timeoutRef.current = setTimeout(() => {
       setToast({ visible: false, message: '' })
     }, 2000)
+    ;(timeoutRef.current as unknown as { unref?: () => void }).unref?.()
   }, [])
 
   useEffect(() => {
@@ -54,6 +57,18 @@ export function useGeofenceNotifications() {
 
         try {
           await insertCheckIn(supabase, { poiId: data.poiId })
+          // Confirm any pending joins at this POI — best-effort, never blocks check-in
+          try {
+            await confirmJoins(supabase, { poiId: data.poiId })
+          } catch {
+            try {
+              await new Promise(r => setTimeout(r, 2000))
+              if (!isMounted.current) return
+              await confirmJoins(supabase, { poiId: data.poiId })
+            } catch (retryErr) {
+              console.error('[Geofence notification] Join confirmation failed after retry:', retryErr)
+            }
+          }
           showToast(`Checked in at ${data.poiName}`)
         } catch (err) {
           console.error('[Geofence notification] Check-in failed:', err)
@@ -63,6 +78,7 @@ export function useGeofenceNotifications() {
     )
 
     return () => {
+      isMounted.current = false
       subscription.remove()
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
