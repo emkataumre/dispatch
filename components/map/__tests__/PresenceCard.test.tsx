@@ -24,6 +24,11 @@ const MOCK_JOIN: PresenceJoin = {
   confirmed: false,
 }
 
+const MOCK_JOIN_CONFIRMED: PresenceJoin = {
+  ...MOCK_JOIN,
+  confirmed: true,
+}
+
 function findTexts(root: ReturnType<typeof create>): string[] {
   return root.root
     .findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
@@ -192,6 +197,37 @@ describe('PresenceCard', () => {
     await act(async () => { resolveJoin() })
   })
 
+  it('shows ActivityIndicator while cancel is in progress', async () => {
+    let resolveCancel!: () => void
+    const onCancel = jest.fn().mockReturnValue(new Promise<void>((r) => { resolveCancel = r }))
+
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={MOCK_PRESENCE}
+          existingJoin={MOCK_JOIN}
+          onJoin={jest.fn()}
+          onCancel={onCancel}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const touchables = root!.root.findAllByType(TouchableOpacity)
+    const cancelButton = touchables.find((n) => {
+      const texts = n.findAll((c: ReactTestInstance) => (c.type as string) === 'Text')
+      return texts.some((t) => String(t.props.children) === 'Cancel')
+    })
+
+    act(() => { cancelButton!.props.onPress() })
+
+    expect(root!.root.findAllByType(ActivityIndicator).length).toBeGreaterThan(0)
+
+    // Clean up
+    await act(async () => { resolveCancel() })
+  })
+
   it('does not render message text when message is null', () => {
     const presence: LivePresenceEntry = { ...MOCK_PRESENCE, message: null }
 
@@ -275,6 +311,67 @@ describe('PresenceCard', () => {
       .findAllByType(Text)
       .find((n: ReactTestInstance) => String(n.props.children) === 'You have already joined this person.')
     expect(errorNode).toBeDefined()
+  })
+
+  it('renders Arrived when existingJoin is confirmed', () => {
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={MOCK_PRESENCE}
+          existingJoin={MOCK_JOIN_CONFIRMED}
+          onJoin={jest.fn()}
+          onCancel={jest.fn()}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const texts = findTexts(root!)
+    expect(texts).toContain('Arrived')
+    expect(texts).not.toContain('On my way')
+    expect(texts).not.toContain('Cancel')
+    expect(texts.some((t) => t.includes('Join'))).toBe(false)
+  })
+
+  it('renders no action buttons when confirmed join exists', () => {
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={MOCK_PRESENCE}
+          existingJoin={MOCK_JOIN_CONFIRMED}
+          onJoin={jest.fn()}
+          onCancel={jest.fn()}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const texts = findTexts(root!)
+    expect(texts.some((t) => t.includes('Join'))).toBe(false)
+    expect(texts).not.toContain('Cancel')
+    expect(texts).not.toContain('On my way')
+  })
+
+  it('still renders On my way state when existingJoin is unconfirmed', () => {
+    let root: ReturnType<typeof create>
+    act(() => {
+      root = create(
+        <PresenceCard
+          presence={MOCK_PRESENCE}
+          existingJoin={MOCK_JOIN}
+          onJoin={jest.fn()}
+          onCancel={jest.fn()}
+          isOwnPresence={false}
+        />
+      )
+    })
+
+    const texts = findTexts(root!)
+    expect(texts).toContain('On my way')
+    expect(texts).toContain('Cancel')
+    expect(texts).not.toContain('Arrived')
   })
 
   it('extracts first name for Join button label', () => {

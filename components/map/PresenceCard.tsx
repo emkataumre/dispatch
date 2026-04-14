@@ -62,6 +62,8 @@ export function PresenceCard({ presence, existingJoin, onJoin, onCancel, isOwnPr
         <View style={styles.action}>
           {busy ? (
             <ActivityIndicator size="small" color="#131313" />
+          ) : existingJoin?.confirmed ? (
+            <Text style={styles.arrivedText}>Arrived</Text>
           ) : existingJoin ? (
             <View style={styles.joinedState}>
               <Text style={styles.onMyWayText}>On my way</Text>
@@ -121,6 +123,11 @@ const styles = StyleSheet.create({
   joinedState: {
     alignItems: 'flex-end',
     gap: 4,
+  },
+  arrivedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2D8A4E',
   },
   onMyWayText: {
     fontSize: 12,
