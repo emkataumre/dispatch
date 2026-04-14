@@ -270,14 +270,14 @@ describe('useGeofenceNotifications', () => {
     // Subsequent 2000ms timers (toast cleanup) are registered but not called,
     // so toast.visible stays true when we check. React's internal 0ms timers
     // are not affected by the 2000ms guard.
-    const setTimeoutSpy = jest.spyOn(global, 'setTimeout')
+    const setTimeoutSpy = jest.spyOn(globalThis, 'setTimeout')
     let retryFired = false
     setTimeoutSpy.mockImplementation((fn, delay) => {
       if (!retryFired && delay === 2000) {
         retryFired = true
         if (typeof fn === 'function') (fn as () => void)()
       }
-      return 0 as unknown as NodeJS.Timeout
+      return 0 as unknown as ReturnType<typeof setTimeout>
     })
 
     ;(confirmJoins as jest.Mock)
@@ -300,14 +300,14 @@ describe('useGeofenceNotifications', () => {
   })
 
   it('logs error and still shows toast when confirmJoins fails both attempts', async () => {
-    const setTimeoutSpy = jest.spyOn(global, 'setTimeout')
+    const setTimeoutSpy = jest.spyOn(globalThis, 'setTimeout')
     let retryFired = false
     setTimeoutSpy.mockImplementation((fn, delay) => {
       if (!retryFired && delay === 2000) {
         retryFired = true
         if (typeof fn === 'function') (fn as () => void)()
       }
-      return 0 as unknown as NodeJS.Timeout
+      return 0 as unknown as ReturnType<typeof setTimeout>
     })
 
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
@@ -339,13 +339,13 @@ describe('useGeofenceNotifications', () => {
     const { result } = renderHook(() => useGeofenceNotifications())
     // Set up the spy AFTER renderHook so React initialisation timers are unaffected.
     // The spy intercepts the toast cleanup setTimeout (2000 ms) and captures the fn.
-    const setTimeoutSpy = jest.spyOn(global, 'setTimeout')
+    const setTimeoutSpy = jest.spyOn(globalThis, 'setTimeout')
     let cleanupFn: (() => void) | null = null
     setTimeoutSpy.mockImplementation((fn, delay) => {
       if (delay === 2000 && typeof fn === 'function') {
         cleanupFn = fn as () => void
       }
-      return 0 as unknown as NodeJS.Timeout
+      return 0 as unknown as ReturnType<typeof setTimeout>
     })
 
     await act(async () => {

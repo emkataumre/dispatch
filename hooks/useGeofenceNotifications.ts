@@ -21,7 +21,7 @@ export function useGeofenceNotifications() {
     timeoutRef.current = setTimeout(() => {
       setToast({ visible: false, message: '' })
     }, 2000)
-    ;(timeoutRef.current as NodeJS.Timeout).unref?.()
+    ;(timeoutRef.current as unknown as { unref?: () => void }).unref?.()
   }, [])
 
   useEffect(() => {
