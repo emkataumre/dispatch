@@ -25,6 +25,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }))
 jest.mock('../notifications', () => ({
   CHECKIN_CATEGORY: 'geofence-checkin',
+  setupNotificationCategories: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('../supabase', () => ({
   supabase: {
@@ -124,6 +125,7 @@ describe('geofence task handler', () => {
     })
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: 'geofence-checkin:poi-1',
       content: {
         title: "You're at Paludan Bogcafé",
         body: 'Are you here? Tap to check in!',
@@ -210,6 +212,7 @@ describe('geofence task handler', () => {
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
+        identifier: 'geofence-checkin:poi-1',
         content: expect.objectContaining({
           data: { poiId: 'poi-1', poiName: 'Café :: Lounge' },
         }),
@@ -396,6 +399,45 @@ describe('registerGeofences', () => {
 
   afterEach(() => {
     Object.defineProperty(Platform, 'OS', { value: originalOS })
+  })
+
+  it('stops existing geofence task before re-registering', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android' })
+    const { registerGeofences } = require('../backgroundGeofences')
+
+    // Track call order via a shared array
+    const callOrder: string[] = []
+    Location.stopGeofencingAsync.mockImplementation(() => {
+      callOrder.push('stopGeofencing')
+      return Promise.resolve(undefined)
+    })
+    Location.startGeofencingAsync.mockImplementation(() => {
+      callOrder.push('startGeofencing')
+      return Promise.resolve(undefined)
+    })
+
+    const pois: PoiSlim[] = [
+      { id: 'poi-1', name: 'Test', lat: 55.676, lng: 12.568 },
+    ]
+
+    await registerGeofences(pois, { latitude: 55.676, longitude: 12.568 })
+
+    expect(Location.stopGeofencingAsync).toHaveBeenCalledWith('dispatch-geofence-task')
+    expect(callOrder.indexOf('stopGeofencing')).toBeLessThan(callOrder.indexOf('startGeofencing'))
+  })
+
+  it('tolerates not-registered error when stopping geofence task', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android' })
+    Location.stopGeofencingAsync.mockRejectedValueOnce(new Error('Task not registered'))
+
+    const { registerGeofences } = require('../backgroundGeofences')
+    const pois: PoiSlim[] = [
+      { id: 'poi-1', name: 'Test', lat: 55.676, lng: 12.568 },
+    ]
+
+    // Should not throw — the error is silently swallowed
+    await expect(registerGeofences(pois)).resolves.toBeUndefined()
+    expect(Location.startGeofencingAsync).toHaveBeenCalled()
   })
 
   it('registers all POIs on Android (limit 100 > 63 POIs)', async () => {

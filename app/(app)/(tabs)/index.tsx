@@ -19,7 +19,6 @@ import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
 import { PoiListView } from '@/components/map/PoiListView'
 import { POI_CATEGORIES, PoiCategory } from '@/lib/poiCategories'
 import { registerGeofences } from '@/lib/backgroundGeofences'
-import { setupNotificationCategories } from '@/lib/notifications'
 import { BackgroundPermissionBanner } from '@/components/BackgroundPermissionBanner'
 
 type Poi = Tables<'pois'>
@@ -81,8 +80,6 @@ export default function MapScreen() {
 
     async function setup() {
       try {
-        await setupNotificationCategories()
-
         const { status } = await Notifications.getPermissionsAsync()
         if (status !== 'granted') {
           const { status: newStatus } = await Notifications.requestPermissionsAsync()
