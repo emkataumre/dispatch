@@ -30,7 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { dismissPresence, ActivePresence } from "@/lib/presence";
 import { LivePresenceEntry } from "@/hooks/useLivePresences";
-import { PresenceJoin } from "@/lib/presenceJoins";
+import { PresenceJoin, confirmJoins } from "@/lib/presenceJoins";
 
 type Poi = Tables<"pois">;
 
@@ -166,6 +166,23 @@ export function PoiBottomSheet({
       if (index === -1) onClose();
     },
     [onClose],
+  );
+
+  // If the joiner is already at the POI when they tap "Joining", no geofence
+  // ENTER event will fire (they're already inside). Auto-confirm immediately.
+  const handleJoin = useCallback(
+    async (presenceId: string): Promise<PresenceJoin | void> => {
+      const result = await onJoinPresence(presenceId)
+      if (result && isNearby && poi?.id) {
+        try {
+          await confirmJoins(supabase, { poiId: poi.id })
+        } catch (err) {
+          console.error('[PoiBottomSheet] immediate confirmJoins failed:', err)
+        }
+      }
+      return result
+    },
+    [onJoinPresence, isNearby, poi?.id]
   );
 
   const categoryColor = poi ? CATEGORY_COLORS[poi.category] : "#999";
@@ -333,7 +350,7 @@ export function PoiBottomSheet({
                       key={p.id}
                       presence={p}
                       existingJoin={getJoinForPresence(p.id)}
-                      onJoin={onJoinPresence}
+                      onJoin={handleJoin}
                       onCancel={onCancelJoin}
                       isOwnPresence={p.userId === session?.user.id}
                     />

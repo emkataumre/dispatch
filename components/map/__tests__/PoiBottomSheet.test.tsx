@@ -71,6 +71,7 @@ jest.mock('@/hooks/useAuth', () => ({
 
 jest.mock('@/lib/supabase', () => ({ supabase: {} }))
 jest.mock('@/lib/presence', () => ({ dismissPresence: jest.fn() }))
+jest.mock('@/lib/presenceJoins', () => ({ confirmJoins: jest.fn().mockResolvedValue(undefined) }))
 
 jest.mock('@/components/map/PoiRatingModal', () => ({
   PoiRatingModal: require('react').forwardRef(() => null),
@@ -87,6 +88,7 @@ jest.mock('@/lib/poiCategories', () => ({
 
 import { PoiBottomSheet } from '../PoiBottomSheet'
 import { dismissPresence } from '@/lib/presence'
+import { confirmJoins } from '@/lib/presenceJoins'
 
 type Poi = Tables<'pois'>
 
@@ -132,6 +134,8 @@ function makePresence(overrides: Partial<LivePresenceEntry> = {}): LivePresenceE
 beforeEach(() => {
   jest.clearAllMocks()
   mockPresenceCardProps.length = 0
+  // clearAllMocks clears call history but not mockReturnValue — reset the default explicitly
+  require('@/hooks/useProximity').useProximity.mockReturnValue({ isNearby: false })
 })
 
 describe('PoiBottomSheet — Who\'s here section', () => {
@@ -242,6 +246,61 @@ describe('PoiBottomSheet — Who\'s here section', () => {
 
     const texts = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === 'Text')
     expect(texts.some((n) => String(n.props.children) === 'Could not end broadcast. Try again.')).toBe(true)
+  })
+
+  it('calls confirmJoins immediately when joiner is already at the POI', async () => {
+    const { useProximity } = require('@/hooks/useProximity')
+    useProximity.mockReturnValue({ isNearby: true })
+
+    const mockJoin: PresenceJoin = {
+      id: 'join-1', presence_id: 'presence-1', joiner_user_id: 'current-user-id',
+      joined_at: '2026-01-01T00:00:00Z', confirmed: false,
+    }
+    const onJoinPresence = jest.fn().mockResolvedValue(mockJoin)
+
+    act(() => {
+      create(
+        <PoiBottomSheet
+          {...BASE_PROPS}
+          presences={[makePresence()]}
+          onJoinPresence={onJoinPresence}
+        />
+      )
+    })
+
+    // Invoke the onJoin passed to PresenceCard
+    await act(async () => {
+      await mockPresenceCardProps[0].onJoin('presence-1')
+    })
+
+    expect(onJoinPresence).toHaveBeenCalledWith('presence-1')
+    expect(confirmJoins).toHaveBeenCalledWith(expect.anything(), { poiId: 'poi-1' })
+  })
+
+  it('does not call confirmJoins when joiner is not nearby', async () => {
+    // useProximity default is isNearby: false (set in mock at top of file)
+    const mockJoin: PresenceJoin = {
+      id: 'join-1', presence_id: 'presence-1', joiner_user_id: 'current-user-id',
+      joined_at: '2026-01-01T00:00:00Z', confirmed: false,
+    }
+    const onJoinPresence = jest.fn().mockResolvedValue(mockJoin)
+
+    act(() => {
+      create(
+        <PoiBottomSheet
+          {...BASE_PROPS}
+          presences={[makePresence()]}
+          onJoinPresence={onJoinPresence}
+        />
+      )
+    })
+
+    await act(async () => {
+      await mockPresenceCardProps[0].onJoin('presence-1')
+    })
+
+    expect(onJoinPresence).toHaveBeenCalledWith('presence-1')
+    expect(confirmJoins).not.toHaveBeenCalled()
   })
 
   it('passes getJoinForPresence result to PresenceCard as existingJoin', () => {
