@@ -16,7 +16,7 @@ function makeMockSupabase({
   insertResult = { error: null },
 }: {
   profileResult?: { data: { semester_id: string | null } | null; error: { message: string } | null }
-  insertResult?: { error: { message: string } | null }
+  insertResult?: { error: { message: string; code?: string } | null }
 } = {}): MockSupabase {
   const single = jest.fn().mockResolvedValue(profileResult)
   const eqProfile = jest.fn().mockReturnValue({ single })
@@ -111,5 +111,14 @@ describe('insertCheckIn', () => {
     await expect(
       insertCheckIn(asClient(mock), { poiId: MOCK_POI_ID })
     ).rejects.toThrow('insert failed')
+  })
+
+  it('treats exclusion constraint violation (23P01) as success', async () => {
+    const mock = makeMockSupabase({
+      insertResult: { error: { code: '23P01', message: 'conflicting key value violates exclusion constraint' } as any },
+    })
+
+    // Should resolve without throwing — the first check-in already exists
+    await expect(insertCheckIn(asClient(mock), { poiId: MOCK_POI_ID })).resolves.toBeUndefined()
   })
 })

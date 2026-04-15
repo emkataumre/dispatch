@@ -14,6 +14,11 @@ export function useGeofenceNotifications() {
   const [toast, setToast] = useState<ToastState>({ visible: false, message: '' })
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMounted = useRef(true)
+  // Track notification IDs already processed to prevent duplicate check-ins
+  // when the OS delivers the same geofence event twice (e.g. cold start
+  // re-registration). The DB exclusion constraint is the authoritative guard;
+  // this is a fast client-side short-circuit.
+  const processedIds = useRef(new Set<string>())
 
   const showToast = useCallback((message: string) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -31,11 +36,11 @@ export function useGeofenceNotifications() {
         const category = notification.request.content.categoryIdentifier
         if (category !== CHECKIN_CATEGORY) return
 
+        const notifId = notification.request.identifier
+
         // Dismiss the notification on any action to prevent stale banners —
         // on Android, notification actions do not always auto-dismiss.
-        await Notifications.dismissNotificationAsync(
-          notification.request.identifier
-        )
+        await Notifications.dismissNotificationAsync(notifId)
 
         // Any action other than explicit confirm or default tap (banner tap) is
         // ignored — e.g. ACTION_DISMISS ("No" button). The notification was
@@ -44,6 +49,12 @@ export function useGeofenceNotifications() {
           actionIdentifier !== ACTION_CONFIRM &&
           actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER
         ) return
+
+        // Skip if this notification was already processed — prevents duplicate
+        // check-ins from duplicate notifications triggered by geofence
+        // re-registration on cold start.
+        if (processedIds.current.has(notifId)) return
+        processedIds.current.add(notifId)
 
         const data = notification.request.content.data as {
           poiId?: string

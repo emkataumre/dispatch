@@ -95,9 +95,16 @@ export async function registerGeofences(
   pois: PoiSlim[],
   currentLocation?: { latitude: number; longitude: number }
 ): Promise<void> {
-  // Stop any stale location-update task from a previous session. A leftover
-  // task could trigger re-registration (via the SLC_TASK callback) while we
-  // are in the middle of setting up fresh geofence regions, overwriting them.
+  // Stop any stale geofence and location-update tasks from a previous session.
+  // Without stopping the geofence task first, startGeofencingAsync may deliver
+  // queued/pending Enter events from the old registration alongside the new one,
+  // causing duplicate notifications for the same POI.
+  try { await Location.stopGeofencingAsync(GEOFENCE_TASK) } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (!msg.includes('not registered') && !msg.includes('not found')) {
+      console.error('[registerGeofences] unexpected error stopping stale geofence task:', err)
+    }
+  }
   try { await Location.stopLocationUpdatesAsync(SLC_TASK) } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     if (!msg.includes('not registered') && !msg.includes('not found')) {
@@ -172,6 +179,11 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
 
   try {
     await Notifications.scheduleNotificationAsync({
+      // Stable identifier per POI — if the OS delivers a duplicate geofence
+      // Enter event (e.g. after re-registration on cold start), the second
+      // scheduleNotificationAsync call auto-replaces the first notification
+      // instead of creating a second one.
+      identifier: `geofence-checkin:${poiId}`,
       content: {
         title: `You're at ${poiName}`,
         body: 'Are you here? Tap to check in!',

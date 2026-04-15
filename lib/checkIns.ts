@@ -22,5 +22,10 @@ export async function insertCheckIn(
       poi_id: poiId,
       semester_id: profile.semester_id,
     })
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Exclusion constraint: duplicate check-in at same POI within 5 minutes.
+    // Treat as success — the first check-in already exists.
+    if (error.code === '23P01') return
+    throw new Error(error.message)
+  }
 }

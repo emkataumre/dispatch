@@ -236,6 +236,56 @@ describe('useGeofenceNotifications', () => {
     expect(removeMock).toHaveBeenCalled()
   })
 
+  it('ignores duplicate notification with same identifier', async () => {
+    renderHook(() => useGeofenceNotifications())
+
+    // First response — should insert check-in
+    await act(async () => {
+      await notificationResponseListener!(
+        makeNotificationResponse('confirm-checkin', 'poi-1', 'Paludan')
+      )
+    })
+
+    expect(insertCheckIn).toHaveBeenCalledTimes(1)
+
+    // Second response with same notification identifier — should be skipped
+    await act(async () => {
+      await notificationResponseListener!(
+        makeNotificationResponse('confirm-checkin', 'poi-1', 'Paludan')
+      )
+    })
+
+    // insertCheckIn should still have been called only once
+    expect(insertCheckIn).toHaveBeenCalledTimes(1)
+  })
+
+  it('processes notifications with different identifiers independently', async () => {
+    renderHook(() => useGeofenceNotifications())
+
+    await act(async () => {
+      await notificationResponseListener!(
+        makeNotificationResponse('confirm-checkin', 'poi-1', 'Paludan')
+      )
+    })
+
+    await act(async () => {
+      await notificationResponseListener!({
+        actionIdentifier: 'confirm-checkin',
+        notification: {
+          request: {
+            identifier: 'notif-456',
+            content: {
+              categoryIdentifier: 'geofence-checkin',
+              data: { poiId: 'poi-2', poiName: 'Nørrebro' },
+            },
+          },
+        },
+      })
+    })
+
+    expect(insertCheckIn).toHaveBeenCalledTimes(2)
+  })
+
   it('calls confirmJoins after successful check-in', async () => {
     renderHook(() => useGeofenceNotifications())
 

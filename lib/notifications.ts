@@ -29,6 +29,16 @@ export async function setupNotificationCategories(): Promise<void> {
   ])
 }
 
+// Module-level side effect (intentional): create the Android notification
+// channel and register action categories early so they are available in
+// headless mode (background geofence events). Previously this only ran inside
+// MapScreen's useEffect, so headless task invocations tried to schedule on a
+// non-existent channel and silently failed. Fire-and-forget — errors are
+// logged but must not crash the module import chain.
+setupNotificationCategories().catch((err) => {
+  console.warn('[notifications] setupNotificationCategories failed at module scope:', err)
+})
+
 // Module-level side effect (intentional): setNotificationHandler must be
 // registered early, before any notification arrives. Imported via index.js to
 // ensure registration in both foreground and headless contexts. Currently
