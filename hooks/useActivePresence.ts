@@ -21,9 +21,10 @@ export function useActivePresence() {
 
     supabase
       .from("live_presence")
-      .select("id, poi_id, message, visible_to")
+      .select("id, poi_id, message, visible_to, expires_at")
       .eq("user_id", userId)
       .is("dismissed_at", null)
+      .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
       .then(({ data, error: fetchError }) => {

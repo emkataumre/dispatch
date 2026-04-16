@@ -9,6 +9,11 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 const mockLimitFn = jest.fn();
+const mockGtFn = jest.fn(() => ({
+  order: jest.fn(() => ({
+    limit: mockLimitFn,
+  })),
+}));
 const mockUseAuth = jest.fn();
 
 jest.mock("@/lib/supabase", () => ({
@@ -17,9 +22,7 @@ jest.mock("@/lib/supabase", () => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           is: jest.fn(() => ({
-            order: jest.fn(() => ({
-              limit: mockLimitFn,
-            })),
+            gt: mockGtFn,
           })),
         })),
       })),
@@ -172,5 +175,53 @@ describe("useActivePresence", () => {
 
     expect(result.current.activePresence).toBeNull();
     expect(result.current.error).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Expiry filter tests (AC 5 — client-side belt-and-suspenders filter)
+  // ---------------------------------------------------------------------------
+
+  it("mount fetch calls .gt('expires_at', …) so expired own broadcasts are excluded", async () => {
+    mockLimitFn.mockResolvedValue({ data: [], error: null });
+
+    const before = new Date();
+    renderHook(() => useActivePresence());
+    await flush();
+    const after = new Date();
+
+    expect(mockGtFn).toHaveBeenCalledTimes(1);
+
+    const [column, isoValue] = mockGtFn.mock.calls[0] as unknown as [string, string];
+    expect(column).toBe("expires_at");
+
+    // The ISO string must represent a timestamp in the window [before, after]
+    const supplied = new Date(isoValue);
+    expect(supplied.getTime()).toBeGreaterThanOrEqual(before.getTime() - 50); // 50 ms slack
+    expect(supplied.getTime()).toBeLessThanOrEqual(after.getTime() + 50);
+  });
+
+  it("SELECT includes 'expires_at' in the column list", async () => {
+    mockLimitFn.mockResolvedValue({ data: [], error: null });
+
+    const { supabase } = require("@/lib/supabase");
+    renderHook(() => useActivePresence());
+    await flush();
+
+    const selectMock = (supabase.from as jest.Mock).mock.results[0].value.select as jest.Mock;
+    expect(selectMock).toHaveBeenCalledWith(expect.stringContaining("expires_at"));
+  });
+
+  it("activePresence resolves to null when the expiry-filtered query returns no rows (simulating expired broadcast)", async () => {
+    // When .gt("expires_at", now) is applied server-side, an expired broadcast returns
+    // no rows. Verify the hook correctly resolves activePresence to null in that scenario.
+    mockLimitFn.mockResolvedValue({ data: [], error: null });
+
+    const result = renderHook(() => useActivePresence());
+    await flush();
+
+    expect(result.current.activePresence).toBeNull();
+    expect(result.current.loading).toBe(false);
+    // The gt filter was called — the expiry constraint was applied
+    expect(mockGtFn).toHaveBeenCalledWith("expires_at", expect.any(String));
   });
 });

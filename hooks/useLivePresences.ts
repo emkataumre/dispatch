@@ -56,6 +56,7 @@ export function useLivePresences(friendIds: string[]) {
         .from("live_presence")
         .select("id, user_id, poi_id, message, profiles(display_name, avatar_url)")
         .is("dismissed_at", null)
+        .gt("expires_at", new Date().toISOString())
         .neq("user_id", userId);
       if (!active) return;
       if (fetchError) {

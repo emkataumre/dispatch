@@ -17,8 +17,11 @@ import { PresenceLayer } from "@/components/map/PresenceLayer";
 import { CategoryFilterBar } from "@/components/map/CategoryFilterBar";
 import { PoiBottomSheet } from "@/components/map/PoiBottomSheet";
 import { PoiListView } from "@/components/map/PoiListView";
+import { BroadcastingPill } from "@/components/map/BroadcastingPill";
 import { POI_CATEGORIES, PoiCategory } from "@/lib/poiCategories";
 import { registerGeofences } from "@/lib/backgroundGeofences";
+import { dismissPresence } from "@/lib/presence";
+import { supabase } from "@/lib/supabase";
 import { BackgroundPermissionBanner } from "@/components/BackgroundPermissionBanner";
 
 type Poi = Tables<"pois">;
@@ -167,6 +170,17 @@ export default function MapScreen() {
     setViewMode((v) => (v === "map" ? "list" : "map"));
   }, []);
 
+  const broadcastPoi = useMemo(
+    () => (activePresence ? (pois.find((p) => p.id === activePresence.poi_id) ?? null) : null),
+    [activePresence, pois],
+  );
+
+  const handleEndBroadcast = useCallback(async () => {
+    if (!activePresence) return;
+    await dismissPresence(supabase, { presenceId: activePresence.id });
+    clearBroadcast();
+  }, [activePresence, clearBroadcast]);
+
   const handleReturnToLocation = useCallback(async () => {
     setLocationError(null);
     try {
@@ -233,6 +247,10 @@ export default function MapScreen() {
           onGranted={() => setBackgroundGranted(true)}
           onDismiss={() => setBannerDismissed(true)}
         />
+      )}
+
+      {viewMode === "map" && broadcastPoi && (
+        <BroadcastingPill poiName={broadcastPoi.name} onEnd={handleEndBroadcast} />
       )}
 
       {(poisError ||
