@@ -1,23 +1,23 @@
-import { useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { FriendRequestRow } from '@/components/friends/FriendRequestRow'
-import { IncomingRequestEntry } from '@/hooks/useFriendships'
+import { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FriendRequestRow } from "@/components/friends/FriendRequestRow";
+import { IncomingRequestEntry } from "@/hooks/useFriendships";
 
-const INITIAL_VISIBLE = 3
+const INITIAL_VISIBLE = 3;
 
 interface Props {
-  requests: IncomingRequestEntry[]
-  onAccept: (friendshipId: string) => Promise<void>
-  onDecline: (friendshipId: string) => Promise<void>
+  requests: IncomingRequestEntry[];
+  onAccept: (friendshipId: string) => Promise<void>;
+  onDecline: (friendshipId: string) => Promise<void>;
 }
 
 export function IncomingRequestsSection({ requests, onAccept, onDecline }: Props) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false);
 
-  if (requests.length === 0) return null
+  if (requests.length === 0) return null;
 
-  const visible = expanded ? requests : requests.slice(0, INITIAL_VISIBLE)
-  const hiddenCount = requests.length - INITIAL_VISIBLE
+  const visible = expanded ? requests : requests.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = requests.length - INITIAL_VISIBLE;
 
   return (
     <View style={styles.section}>
@@ -39,7 +39,7 @@ export function IncomingRequestsSection({ requests, onAccept, onDecline }: Props
         </TouchableOpacity>
       )}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   },
   showMoreText: {
     fontSize: 14,
-    color: '#0066FF',
-    fontWeight: '600',
+    color: "#0066FF",
+    fontWeight: "600",
   },
-})
+});

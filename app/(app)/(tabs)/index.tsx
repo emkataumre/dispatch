@@ -1,67 +1,77 @@
-import Mapbox from '@rnmapbox/maps'
-import { Ionicons } from '@expo/vector-icons'
-import * as Location from 'expo-location'
-import * as Notifications from 'expo-notifications'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PoiSlim } from '@/lib/backgroundGeofences'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Tables } from '@/types/supabase'
-import { usePois } from '@/hooks/usePois'
-import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
-import { useActivePresence } from '@/hooks/useActivePresence'
-import { useFriendships } from '@/hooks/useFriendships'
-import { useLivePresences } from '@/hooks/useLivePresences'
-import { usePresenceJoins } from '@/hooks/usePresenceJoins'
-import { PoiLayer } from '@/components/map/PoiLayer'
-import { PresenceLayer } from '@/components/map/PresenceLayer'
-import { CategoryFilterBar } from '@/components/map/CategoryFilterBar'
-import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
-import { PoiListView } from '@/components/map/PoiListView'
-import { POI_CATEGORIES, PoiCategory } from '@/lib/poiCategories'
-import { registerGeofences } from '@/lib/backgroundGeofences'
-import { BackgroundPermissionBanner } from '@/components/BackgroundPermissionBanner'
+import Mapbox from "@rnmapbox/maps";
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PoiSlim } from "@/lib/backgroundGeofences";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Tables } from "@/types/supabase";
+import { usePois } from "@/hooks/usePois";
+import { useAllPoiRatings } from "@/hooks/useAllPoiRatings";
+import { useActivePresence } from "@/hooks/useActivePresence";
+import { useFriendships } from "@/hooks/useFriendships";
+import { useLivePresences } from "@/hooks/useLivePresences";
+import { usePresenceJoins } from "@/hooks/usePresenceJoins";
+import { PoiLayer } from "@/components/map/PoiLayer";
+import { PresenceLayer } from "@/components/map/PresenceLayer";
+import { CategoryFilterBar } from "@/components/map/CategoryFilterBar";
+import { PoiBottomSheet } from "@/components/map/PoiBottomSheet";
+import { PoiListView } from "@/components/map/PoiListView";
+import { POI_CATEGORIES, PoiCategory } from "@/lib/poiCategories";
+import { registerGeofences } from "@/lib/backgroundGeofences";
+import { BackgroundPermissionBanner } from "@/components/BackgroundPermissionBanner";
 
-type Poi = Tables<'pois'>
+type Poi = Tables<"pois">;
 
-const ALL_ACTIVE = Object.fromEntries(
-  POI_CATEGORIES.map((c) => [c, true])
-) as Record<PoiCategory, boolean>
+const ALL_ACTIVE = Object.fromEntries(POI_CATEGORIES.map((c) => [c, true])) as Record<
+  PoiCategory,
+  boolean
+>;
 
 export default function MapScreen() {
-  const { pois, error: poisError } = usePois()
-  const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings()
-  const { activePresence, setBroadcast, clearBroadcast } = useActivePresence()
-  const { friends, error: friendshipsError } = useFriendships()
-  const friendIds = useMemo(() => friends.map((f) => f.userId), [friends])
-  const { presences, error: presenceError } = useLivePresences(friendIds)
-  const { join, cancel, getJoinForPresence, error: joinsError } = usePresenceJoins()
-  const [activeCategories, setActiveCategories] = useState<Record<PoiCategory, boolean>>(ALL_ACTIVE)
-  const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null)
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
-  const [locationGranted, setLocationGranted] = useState(false)
-  const [backgroundGranted, setBackgroundGranted] = useState(false)
-  const [bannerDismissed, setBannerDismissed] = useState(false)
-  const [locationError, setLocationError] = useState<string | null>(null)
-  const cameraRef = useRef<Mapbox.Camera>(null)
-  const pendingCamera = useRef<Poi | null>(null)
+  const { pois, error: poisError } = usePois();
+  const { avgRatings, error: ratingsError, refetch: refetchRatings } = useAllPoiRatings();
+  const { activePresence, setBroadcast, clearBroadcast } = useActivePresence();
+  const { friends, error: friendshipsError } = useFriendships();
+  const friendIds = useMemo(() => friends.map((f) => f.userId), [friends]);
+  const { presences, error: presenceError } = useLivePresences(friendIds);
+  const { join, cancel, getJoinForPresence, error: joinsError } = usePresenceJoins();
+  const [activeCategories, setActiveCategories] =
+    useState<Record<PoiCategory, boolean>>(ALL_ACTIVE);
+  const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
+  const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [locationGranted, setLocationGranted] = useState(false);
+  const [backgroundGranted, setBackgroundGranted] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const cameraRef = useRef<Mapbox.Camera>(null);
+  const pendingCamera = useRef<Poi | null>(null);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     Location.requestForegroundPermissionsAsync()
       .then(({ status }) => {
-        if (active) setLocationGranted(status === 'granted')
+        if (active) setLocationGranted(status === "granted");
       })
-      .catch((err) => { console.error('Location permission request failed:', err) })
-    return () => { active = false }
-  }, [])
+      .catch((err) => {
+        console.error("Location permission request failed:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Check if background location permission has already been granted.
   useEffect(() => {
-    if (!locationGranted) return
+    if (!locationGranted) return;
     Location.getBackgroundPermissionsAsync()
-      .then(({ status }) => { setBackgroundGranted(status === 'granted') })
-      .catch((err) => { console.error('[MapScreen] Failed to check background permissions:', err) })
-  }, [locationGranted])
+      .then(({ status }) => {
+        setBackgroundGranted(status === "granted");
+      })
+      .catch((err) => {
+        console.error("[MapScreen] Failed to check background permissions:", err);
+      });
+  }, [locationGranted]);
 
   // Stable key for geofence registration — only re-register when the actual
   // POI set changes, not on every pois array reference change. Without this,
@@ -70,110 +80,117 @@ export default function MapScreen() {
   const poisSlim = useMemo<PoiSlim[]>(
     () => pois.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pois.map((p) => p.id).join(',')]
-  )
+    [pois.map((p) => p.id).join(",")],
+  );
 
   // Register geofences once background permission + POIs are available.
   useEffect(() => {
-    if (!backgroundGranted || poisSlim.length === 0) return
-    let cancelled = false
+    if (!backgroundGranted || poisSlim.length === 0) return;
+    let cancelled = false;
 
     async function setup() {
       try {
-        const { status } = await Notifications.getPermissionsAsync()
-        if (status !== 'granted') {
-          const { status: newStatus } = await Notifications.requestPermissionsAsync()
-          if (newStatus !== 'granted') {
-            console.warn('[Geofences] Notification permission denied — skipping geofence registration')
-            return
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== "granted") {
+          const { status: newStatus } = await Notifications.requestPermissionsAsync();
+          if (newStatus !== "granted") {
+            console.warn(
+              "[Geofences] Notification permission denied — skipping geofence registration",
+            );
+            return;
           }
         }
 
-        let currentLocation: { latitude: number; longitude: number } | undefined
+        let currentLocation: { latitude: number; longitude: number } | undefined;
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low })
-          currentLocation = { latitude: loc.coords.latitude, longitude: loc.coords.longitude }
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+          currentLocation = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
         } catch {
           // Fall back to Copenhagen city center (handled inside registerGeofences)
         }
 
-        if (cancelled) return
-        await registerGeofences(poisSlim, currentLocation)
-        console.log('[Geofences] registered', poisSlim.length, 'POIs')
+        if (cancelled) return;
+        await registerGeofences(poisSlim, currentLocation);
+        console.log("[Geofences] registered", poisSlim.length, "POIs");
       } catch (err) {
-        console.error('[Geofence registration] failed:', err)
+        console.error("[Geofence registration] failed:", err);
         if (!cancelled) {
-          setLocationError('Automatic check-ins could not be started — try restarting the app.')
-          setTimeout(() => setLocationError(null), 5000)
+          setLocationError("Automatic check-ins could not be started — try restarting the app.");
+          setTimeout(() => setLocationError(null), 5000);
         }
       }
     }
 
-    setup()
-    return () => { cancelled = true }
-  }, [poisSlim, backgroundGranted])
+    setup();
+    return () => {
+      cancelled = true;
+    };
+  }, [poisSlim, backgroundGranted]);
 
   const filteredPois = useMemo(
     () => pois.filter((p) => activeCategories[p.category] !== false),
-    [pois, activeCategories]
-  )
+    [pois, activeCategories],
+  );
 
   const handlePoiPress = useCallback((poi: Poi) => {
-    setSelectedPoi(poi)
-  }, [])
+    setSelectedPoi(poi);
+  }, []);
 
   const handleSheetClose = useCallback(() => {
-    setSelectedPoi(null)
-    refetchRatings()
-  }, [refetchRatings])
+    setSelectedPoi(null);
+    refetchRatings();
+  }, [refetchRatings]);
 
   const handleListRowPress = useCallback((poi: Poi) => {
-    pendingCamera.current = poi
-    setViewMode('map')
-    setSelectedPoi(poi)
-  }, [])
+    pendingCamera.current = poi;
+    setViewMode("map");
+    setSelectedPoi(poi);
+  }, []);
 
   // setCamera must run after the map is visible again. Calling it synchronously inside
   // handleListRowPress (before the viewMode state update re-renders and unhides the map)
   // is unreliable — the native GL surface may not be ready. pendingCamera stores the
   // target POI so this effect can fire the camera command after the render commits.
   useEffect(() => {
-    if (viewMode === 'map' && pendingCamera.current) {
-      const poi = pendingCamera.current
-      pendingCamera.current = null
+    if (viewMode === "map" && pendingCamera.current) {
+      const poi = pendingCamera.current;
+      pendingCamera.current = null;
       cameraRef.current?.setCamera({
         centerCoordinate: [poi.lng, poi.lat],
         zoomLevel: 15,
         animationDuration: 800,
-      })
+      });
     }
-  }, [viewMode])
+  }, [viewMode]);
 
   const toggleViewMode = useCallback(() => {
-    setViewMode((v) => (v === 'map' ? 'list' : 'map'))
-  }, [])
+    setViewMode((v) => (v === "map" ? "list" : "map"));
+  }, []);
 
   const handleReturnToLocation = useCallback(async () => {
-    setLocationError(null)
+    setLocationError(null);
     try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       cameraRef.current?.setCamera({
         centerCoordinate: [loc.coords.longitude, loc.coords.latitude],
         zoomLevel: 15,
         animationDuration: 800,
-      })
+      });
     } catch (err) {
-      console.error('handleReturnToLocation: failed to get current position', err)
-      setLocationError("Couldn't get your location — try again.")
-      setTimeout(() => setLocationError(null), 3000)
+      console.error("handleReturnToLocation: failed to get current position", err);
+      setLocationError("Couldn't get your location — try again.");
+      setTimeout(() => setLocationError(null), 3000);
     }
-  }, [])
+  }, []);
 
   return (
     <View style={styles.container}>
       {/* MapView stays mounted in list mode (display: none) — unmounting would destroy the
           native Mapbox GL context and invalidate cameraRef, requiring a full re-init on switch back */}
-      <Mapbox.MapView style={[styles.map, viewMode === 'list' && styles.hidden]} styleURL={Mapbox.StyleURL.Light}>
+      <Mapbox.MapView
+        style={[styles.map, viewMode === "list" && styles.hidden]}
+        styleURL={Mapbox.StyleURL.Light}
+      >
         <Mapbox.Camera
           ref={cameraRef}
           defaultSettings={{
@@ -191,26 +208,22 @@ export default function MapScreen() {
         {locationGranted && <Mapbox.LocationPuck puckBearingEnabled puckBearing="heading" />}
       </Mapbox.MapView>
 
-      {viewMode === 'list' && (
-        <PoiListView
-          pois={filteredPois}
-          avgRatings={avgRatings}
-          onPoiPress={handleListRowPress}
-        />
+      {viewMode === "list" && (
+        <PoiListView pois={filteredPois} avgRatings={avgRatings} onPoiPress={handleListRowPress} />
       )}
 
       <CategoryFilterBar value={activeCategories} onChange={setActiveCategories} />
 
       <Pressable style={styles.toggleButton} onPress={toggleViewMode} testID="view-mode-toggle">
-        <Ionicons
-          name={viewMode === 'map' ? 'list' : 'map'}
-          size={20}
-          color="#fff"
-        />
+        <Ionicons name={viewMode === "map" ? "list" : "map"} size={20} color="#fff" />
       </Pressable>
 
-      {locationGranted && viewMode === 'map' && (
-        <Pressable style={styles.locationButton} onPress={handleReturnToLocation} testID="return-to-location">
+      {locationGranted && viewMode === "map" && (
+        <Pressable
+          style={styles.locationButton}
+          onPress={handleReturnToLocation}
+          testID="return-to-location"
+        >
           <Ionicons name="locate" size={20} color="#fff" />
         </Pressable>
       )}
@@ -222,20 +235,25 @@ export default function MapScreen() {
         />
       )}
 
-      {(poisError || ratingsError || presenceError || friendshipsError || joinsError || locationError) && (
+      {(poisError ||
+        ratingsError ||
+        presenceError ||
+        friendshipsError ||
+        joinsError ||
+        locationError) && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>
             {poisError
               ? "Couldn't load places — check your connection."
               : ratingsError
-              ? 'Ratings unavailable.'
-              : presenceError
-              ? 'Live updates unavailable — check your connection.'
-              : friendshipsError
-              ? 'Friend list unavailable — some presences may be hidden.'
-              : locationError
-              ? locationError
-              : 'Could not load join status — check your connection.'}
+                ? "Ratings unavailable."
+                : presenceError
+                  ? "Live updates unavailable — check your connection."
+                  : friendshipsError
+                    ? "Friend list unavailable — some presences may be hidden."
+                    : locationError
+                      ? locationError
+                      : "Could not load join status — check your connection."}
           </Text>
         </View>
       )}
@@ -253,58 +271,58 @@ export default function MapScreen() {
         onCancelJoin={cancel}
       />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
-  hidden: { display: 'none' },
+  hidden: { display: "none" },
   errorBanner: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 90,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(180, 30, 30, 0.92)',
+    backgroundColor: "rgba(180, 30, 30, 0.92)",
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
   errorText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   toggleButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 56,
     right: 16,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#131313',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#131313",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 4,
   },
   locationButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 104,
     right: 16,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#131313',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#131313",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 4,
   },
-})
+});

@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from "react";
 import {
   View,
   Text,
@@ -10,58 +10,58 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-} from 'react-native'
-import { supabase } from '@/lib/supabase'
-import { submitRating } from '@/lib/ratings'
+} from "react-native";
+import { supabase } from "@/lib/supabase";
+import { submitRating } from "@/lib/ratings";
 
 export type PoiRatingModalHandle = {
-  present: () => void
-  dismiss: () => void
-}
+  present: () => void;
+  dismiss: () => void;
+};
 
 type Props = {
-  poiId: string
-  onSubmitted: () => void
-}
+  poiId: string;
+  onSubmitted: () => void;
+};
 
-const STAR_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent']
+const STAR_LABELS = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
 
 export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function PoiRatingModal(
   { poiId, onSubmitted },
-  ref
+  ref,
 ) {
-  const [visible, setVisible] = useState(false)
-  const [selectedRating, setSelectedRating] = useState<number | null>(null)
-  const [comment, setComment] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     present: () => {
-      setSelectedRating(null)
-      setComment('')
-      setError(null)
-      setVisible(true)
+      setSelectedRating(null);
+      setComment("");
+      setError(null);
+      setVisible(true);
     },
     dismiss: () => setVisible(false),
-  }))
+  }));
 
   const handleSubmit = async () => {
-    if (!selectedRating) return
-    setSubmitting(true)
-    setError(null)
+    if (!selectedRating) return;
+    setSubmitting(true);
+    setError(null);
     try {
-      await submitRating(supabase, { poiId, rating: selectedRating, comment })
-      onSubmitted()
-      setVisible(false)
+      await submitRating(supabase, { poiId, rating: selectedRating, comment });
+      onSubmitted();
+      setVisible(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong')
+      setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-  const isReady = !!selectedRating && !submitting
+  const isReady = !!selectedRating && !submitting;
 
   return (
     <Modal
@@ -70,10 +70,7 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
       animationType="fade"
       onRequestClose={() => setVisible(false)}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior="padding"
-      >
+      <KeyboardAvoidingView style={styles.overlay} behavior="padding">
         <Pressable style={styles.backdrop} onPress={() => setVisible(false)} />
 
         <View style={styles.card}>
@@ -102,13 +99,13 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
                         : styles.starInactive,
                     ]}
                   >
-                    {selectedRating !== null && i <= selectedRating ? '★' : '☆'}
+                    {selectedRating !== null && i <= selectedRating ? "★" : "☆"}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <Text style={styles.starLabel}>
-              {selectedRating ? STAR_LABELS[selectedRating] : 'Tap to rate'}
+              {selectedRating ? STAR_LABELS[selectedRating] : "Tap to rate"}
             </Text>
           </View>
 
@@ -146,7 +143,7 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
             ) : (
               <>
                 <Text style={styles.submitText}>
-                  {isReady ? 'Submit Review' : 'Select a rating first'}
+                  {isReady ? "Submit Review" : "Select a rating first"}
                 </Text>
                 {isReady && <Text style={styles.submitArrow}>→</Text>}
               </>
@@ -155,26 +152,26 @@ export const PoiRatingModal = forwardRef<PoiRatingModalHandle, Props>(function P
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  )
-})
+  );
+});
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   card: {
-    width: '88%',
-    backgroundColor: '#FAFAF8',
+    width: "88%",
+    backgroundColor: "#FAFAF8",
     borderRadius: 24,
     padding: 24,
     gap: 18,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -185,22 +182,22 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
-    color: '#131313',
+    fontWeight: "800",
+    color: "#131313",
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: '#AAAAAA',
-    fontWeight: '400',
+    color: "#AAAAAA",
+    fontWeight: "400",
   },
   starsSection: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 10,
     paddingVertical: 6,
   },
   starsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
   },
   starButton: {
@@ -210,85 +207,85 @@ const styles = StyleSheet.create({
     fontSize: 44,
   },
   starActive: {
-    color: '#F5A623',
+    color: "#F5A623",
   },
   starInactive: {
-    color: '#DDD9D3',
+    color: "#DDD9D3",
   },
   starLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#AAAAAA',
+    fontWeight: "600",
+    color: "#AAAAAA",
     letterSpacing: 0.3,
     minHeight: 18,
   },
   inputWrapper: {
-    position: 'relative',
+    position: "relative",
   },
   input: {
     borderWidth: 1.5,
-    borderColor: '#EDECEA',
+    borderColor: "#EDECEA",
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingTop: 13,
     paddingBottom: 32,
     fontSize: 15,
-    color: '#131313',
+    color: "#131313",
     minHeight: 90,
-    textAlignVertical: 'top',
-    backgroundColor: '#fff',
+    textAlignVertical: "top",
+    backgroundColor: "#fff",
     lineHeight: 22,
   },
   charCount: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     right: 14,
     fontSize: 11,
-    color: '#CCCCCC',
-    fontWeight: '500',
+    color: "#CCCCCC",
+    fontWeight: "500",
   },
   errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    backgroundColor: '#FFF1F1',
+    backgroundColor: "#FFF1F1",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
   errorIcon: {
     fontSize: 13,
-    color: '#E51E1E',
+    color: "#E51E1E",
   },
   error: {
-    color: '#E51E1E',
+    color: "#E51E1E",
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     flex: 1,
   },
   submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 14,
     paddingVertical: 15,
     gap: 8,
   },
   submitActive: {
-    backgroundColor: '#131313',
+    backgroundColor: "#131313",
   },
   submitDisabled: {
-    backgroundColor: '#EDECEA',
+    backgroundColor: "#EDECEA",
   },
   submitText: {
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 15,
-    color: '#fff',
+    color: "#fff",
     letterSpacing: 0.1,
   },
   submitArrow: {
-    color: '#ffffff90',
+    color: "#ffffff90",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-})
+});

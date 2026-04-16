@@ -36,15 +36,11 @@ describe("isEduEmail", () => {
 
 describe("friendlyAuthError", () => {
   it("maps an exact known error message", () => {
-    expect(friendlyAuthError("Invalid login credentials")).toBe(
-      "Incorrect email or password.",
-    );
+    expect(friendlyAuthError("Invalid login credentials")).toBe("Incorrect email or password.");
   });
 
   it("matches case-insensitively", () => {
-    expect(friendlyAuthError("INVALID LOGIN CREDENTIALS")).toBe(
-      "Incorrect email or password.",
-    );
+    expect(friendlyAuthError("INVALID LOGIN CREDENTIALS")).toBe("Incorrect email or password.");
   });
 
   it("matches when the known key is a substring of a longer message", () => {
@@ -66,8 +62,6 @@ describe("friendlyAuthError", () => {
   });
 
   it("returns the fallback for an empty string", () => {
-    expect(friendlyAuthError("")).toBe(
-      "Something went wrong. Please try again.",
-    );
+    expect(friendlyAuthError("")).toBe("Something went wrong. Please try again.");
   });
 });

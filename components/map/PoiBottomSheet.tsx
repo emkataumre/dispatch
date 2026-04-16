@@ -1,12 +1,5 @@
 import { useRef, useMemo, useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Linking,
-  Platform,
-  StyleSheet,
-} from "react-native";
+import { View, Text, TouchableOpacity, Linking, Platform, StyleSheet } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetFlatList,
@@ -15,14 +8,8 @@ import BottomSheet, {
 import { Tables } from "@/types/supabase";
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/lib/poiCategories";
 import { usePoiRatings, RatingComment } from "@/hooks/usePoiRatings";
-import {
-  PoiRatingModal,
-  PoiRatingModalHandle,
-} from "@/components/map/PoiRatingModal";
-import {
-  BroadcastModal,
-  BroadcastModalHandle,
-} from "@/components/map/BroadcastModal";
+import { PoiRatingModal, PoiRatingModalHandle } from "@/components/map/PoiRatingModal";
+import { BroadcastModal, BroadcastModalHandle } from "@/components/map/BroadcastModal";
 import { PresenceCard } from "@/components/map/PresenceCard";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useProximity } from "@/hooks/useProximity";
@@ -91,9 +78,7 @@ function CommentRow({ item }: { item: RatingComment }) {
             <Text style={styles.commentDate}>{date}</Text>
           </View>
         </View>
-        {item.comment ? (
-          <Text style={styles.commentText}>{item.comment}</Text>
-        ) : null}
+        {item.comment ? <Text style={styles.commentText}>{item.comment}</Text> : null}
       </View>
     </View>
   );
@@ -118,15 +103,11 @@ export function PoiBottomSheet({
   const ratingModalRef = useRef<PoiRatingModalHandle>(null);
   const broadcastModalRef = useRef<BroadcastModalHandle>(null);
   const { session } = useAuth();
-  const { avgRating, ratingCount, comments, myRating, refetch } = usePoiRatings(
-    poi?.id,
-  );
-  const { isNearby } = useProximity(
-    locationGranted && poi ? { lat: poi.lat, lng: poi.lng } : null
-  );
+  const { avgRating, ratingCount, comments, myRating, refetch } = usePoiRatings(poi?.id);
+  const { isNearby } = useProximity(locationGranted && poi ? { lat: poi.lat, lng: poi.lng } : null);
   const poiPresences = useMemo(
     () => presences.filter((p) => p.poiId === poi?.id),
-    [presences, poi?.id]
+    [presences, poi?.id],
   );
 
   // Drive open/close imperatively so that a swipe-down (which calls onClose → clears poi)
@@ -172,22 +153,22 @@ export function PoiBottomSheet({
   // ENTER event will fire (they're already inside). Auto-confirm immediately.
   const handleJoin = useCallback(
     async (presenceId: string): Promise<PresenceJoin | void> => {
-      const result = await onJoinPresence(presenceId)
+      const result = await onJoinPresence(presenceId);
       if (result && isNearby && poi?.id) {
         try {
-          await confirmJoins(supabase, { poiId: poi.id })
+          await confirmJoins(supabase, { poiId: poi.id });
         } catch (err) {
-          console.error('[PoiBottomSheet] immediate confirmJoins failed:', err)
+          console.error("[PoiBottomSheet] immediate confirmJoins failed:", err);
         }
       }
-      return result
+      return result;
     },
-    [onJoinPresence, isNearby, poi?.id]
+    [onJoinPresence, isNearby, poi?.id],
   );
 
   const categoryColor = poi ? CATEGORY_COLORS[poi.category] : "#999";
   const categoryLabel = poi ? CATEGORY_LABELS[poi.category] : "";
-  const categoryIcon = poi ? CATEGORY_ICONS[poi.category] ?? "" : "";
+  const categoryIcon = poi ? (CATEGORY_ICONS[poi.category] ?? "") : "";
 
   return (
     <>
@@ -204,9 +185,7 @@ export function PoiBottomSheet({
         <BottomSheetFlatList
           data={comments}
           keyExtractor={(item: RatingComment) => item.id}
-          renderItem={({ item }: { item: RatingComment }) => (
-            <CommentRow item={item} />
-          )}
+          renderItem={({ item }: { item: RatingComment }) => <CommentRow item={item} />}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <>
@@ -303,8 +282,8 @@ export function PoiBottomSheet({
                             await dismissPresence(supabase, { presenceId: activePresence!.id });
                             onDismissBroadcast();
                           } catch (err) {
-                            console.error('dismissPresence failed:', err)
-                            setDismissError('Could not end broadcast. Try again.');
+                            console.error("dismissPresence failed:", err);
+                            setDismissError("Could not end broadcast. Try again.");
                           } finally {
                             setDismissing(false);
                           }
@@ -312,7 +291,9 @@ export function PoiBottomSheet({
                       >
                         <Text style={styles.leaveButtonText}>Leave</Text>
                       </TouchableOpacity>
-                      {dismissError ? <Text style={styles.dismissErrorText}>{dismissError}</Text> : null}
+                      {dismissError ? (
+                        <Text style={styles.dismissErrorText}>{dismissError}</Text>
+                      ) : null}
                     </>
                   );
                 }
@@ -341,8 +322,7 @@ export function PoiBottomSheet({
                 <>
                   <View style={styles.whosHereLabel}>
                     <Text style={styles.whosHereLabelText}>
-                      {poiPresences.length}{" "}
-                      {poiPresences.length === 1 ? "Person" : "People"} here
+                      {poiPresences.length} {poiPresences.length === 1 ? "Person" : "People"} here
                     </Text>
                   </View>
                   {poiPresences.map((p) => (
@@ -372,29 +352,15 @@ export function PoiBottomSheet({
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyEmoji}>💬</Text>
               <Text style={styles.emptyComments}>No comments yet</Text>
-              <Text style={styles.emptySubtext}>
-                Share what you think of this place
-              </Text>
+              <Text style={styles.emptySubtext}>Share what you think of this place</Text>
             </View>
           }
         />
       </BottomSheet>
 
-      {poi && (
-        <PoiRatingModal
-          ref={ratingModalRef}
-          poiId={poi.id}
-          onSubmitted={refetch}
-        />
-      )}
+      {poi && <PoiRatingModal ref={ratingModalRef} poiId={poi.id} onSubmitted={refetch} />}
 
-      {poi && (
-        <BroadcastModal
-          ref={broadcastModalRef}
-          poiId={poi.id}
-          onSubmitted={onBroadcast}
-        />
-      )}
+      {poi && <BroadcastModal ref={broadcastModalRef} poiId={poi.id} onSubmitted={onBroadcast} />}
     </>
   );
 }
@@ -539,46 +505,46 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   imHereButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#131313',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#131313",
     borderRadius: 14,
     paddingVertical: 13,
     marginBottom: 4,
   },
   imHereButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.1,
   },
   imHereButtonDisabled: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EDECEA',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EDECEA",
     borderRadius: 14,
     paddingVertical: 13,
     marginBottom: 4,
   },
   imHereButtonDisabledText: {
-    color: '#AAAAAA',
-    fontWeight: '600',
+    color: "#AAAAAA",
+    fontWeight: "600",
     fontSize: 14,
   },
   leaveButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF1F1',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF1F1",
     borderWidth: 1.5,
-    borderColor: '#E51E1E30',
+    borderColor: "#E51E1E30",
     borderRadius: 14,
     paddingVertical: 13,
     marginBottom: 4,
   },
   leaveButtonText: {
-    color: '#E51E1E',
-    fontWeight: '700',
+    color: "#E51E1E",
+    fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.1,
   },
@@ -587,9 +553,9 @@ const styles = StyleSheet.create({
   },
   dismissErrorText: {
     fontSize: 12,
-    color: '#E51E1E',
-    fontWeight: '500',
-    textAlign: 'center',
+    color: "#E51E1E",
+    fontWeight: "500",
+    textAlign: "center",
     marginTop: 4,
     marginBottom: 4,
   },

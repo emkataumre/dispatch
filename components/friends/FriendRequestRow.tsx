@@ -1,92 +1,92 @@
-import { useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { UserAvatar } from '@/components/UserAvatar'
-import { IncomingRequestEntry } from '@/hooks/useFriendships'
+import { useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { UserAvatar } from "@/components/UserAvatar";
+import { IncomingRequestEntry } from "@/hooks/useFriendships";
 
 interface Props {
-  entry: IncomingRequestEntry
-  onAccept: () => Promise<void>
-  onDecline: () => Promise<void>
+  entry: IncomingRequestEntry;
+  onAccept: () => Promise<void>;
+  onDecline: () => Promise<void>;
 }
 
 export function FriendRequestRow({ entry, onAccept, onDecline }: Props) {
-  const [busy, setBusy] = useState<'accept' | 'decline' | null>(null)
-  const [errorText, setErrorText] = useState<string | null>(null)
+  const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const handleAccept = async () => {
-    if (busy) return
-    setBusy('accept')
-    setErrorText(null)
+    if (busy) return;
+    setBusy("accept");
+    setErrorText(null);
     try {
-      await onAccept()
+      await onAccept();
     } catch (err) {
-      console.error('FriendRequestRow accept:', err)
-      setErrorText('Could not accept request. Try again.')
+      console.error("FriendRequestRow accept:", err);
+      setErrorText("Could not accept request. Try again.");
     } finally {
-      setBusy(null)
+      setBusy(null);
     }
-  }
+  };
 
   const handleDecline = async () => {
-    if (busy) return
-    setBusy('decline')
-    setErrorText(null)
+    if (busy) return;
+    setBusy("decline");
+    setErrorText(null);
     try {
-      await onDecline()
+      await onDecline();
     } catch (err) {
-      console.error('FriendRequestRow decline:', err)
-      setErrorText('Could not decline request. Try again.')
+      console.error("FriendRequestRow decline:", err);
+      setErrorText("Could not decline request. Try again.");
     } finally {
-      setBusy(null)
+      setBusy(null);
     }
-  }
+  };
 
   return (
     <View>
-    <View style={styles.row}>
-      <UserAvatar
-        displayName={entry.displayName}
-        avatarUrl={entry.avatarUrl}
-        size={40}
-        borderWidth={0}
-      />
-      <View style={styles.info}>
-        <Text style={styles.name}>{entry.displayName}</Text>
+      <View style={styles.row}>
+        <UserAvatar
+          displayName={entry.displayName}
+          avatarUrl={entry.avatarUrl}
+          size={40}
+          borderWidth={0}
+        />
+        <View style={styles.info}>
+          <Text style={styles.name}>{entry.displayName}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.declineButton}
+          onPress={handleDecline}
+          disabled={busy !== null}
+          activeOpacity={0.8}
+        >
+          {busy === "decline" ? (
+            <ActivityIndicator size="small" color="#666" />
+          ) : (
+            <Text style={styles.declineText}>Decline</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.acceptButton}
+          onPress={handleAccept}
+          disabled={busy !== null}
+          activeOpacity={0.8}
+        >
+          {busy === "accept" ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.acceptText}>Accept</Text>
+          )}
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.declineButton}
-        onPress={handleDecline}
-        disabled={busy !== null}
-        activeOpacity={0.8}
-      >
-        {busy === 'decline' ? (
-          <ActivityIndicator size="small" color="#666" />
-        ) : (
-          <Text style={styles.declineText}>Decline</Text>
-        )}
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.acceptButton}
-        onPress={handleAccept}
-        disabled={busy !== null}
-        activeOpacity={0.8}
-      >
-        {busy === 'accept' ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.acceptText}>Accept</Text>
-        )}
-      </TouchableOpacity>
+      {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
     </View>
-    {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
-    </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -96,41 +96,41 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#131313',
+    fontWeight: "600",
+    color: "#131313",
   },
   declineButton: {
     borderWidth: 1,
-    borderColor: '#d1d1d1',
+    borderColor: "#d1d1d1",
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
     minWidth: 68,
-    alignItems: 'center',
+    alignItems: "center",
   },
   declineText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   acceptButton: {
-    backgroundColor: '#131313',
+    backgroundColor: "#131313",
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
     minWidth: 68,
-    alignItems: 'center',
+    alignItems: "center",
   },
   acceptText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   errorText: {
     fontSize: 12,
-    color: '#E51E1E',
-    fontWeight: '500',
+    color: "#E51E1E",
+    fontWeight: "500",
     paddingHorizontal: 16,
     paddingBottom: 6,
   },
-})
+});

@@ -1,111 +1,132 @@
-import { useState } from 'react'
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { UserAvatar } from '@/components/UserAvatar'
-import { SearchUser } from '@/lib/friends'
-import { FriendshipStatus } from '@/lib/friendships'
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { UserAvatar } from "@/components/UserAvatar";
+import { SearchUser } from "@/lib/friends";
+import { FriendshipStatus } from "@/lib/friendships";
 
 interface Props {
-  user: SearchUser
-  status: FriendshipStatus
-  onSendRequest: () => Promise<void>
-  onCancelRequest: () => Promise<void>
-  onAcceptRequest: () => Promise<void>
+  user: SearchUser;
+  status: FriendshipStatus;
+  onSendRequest: () => Promise<void>;
+  onCancelRequest: () => Promise<void>;
+  onAcceptRequest: () => Promise<void>;
 }
 
-export function UserSearchResult({ user, status, onSendRequest, onCancelRequest, onAcceptRequest }: Props) {
-  const [busy, setBusy] = useState(false)
-  const [cancelModalVisible, setCancelModalVisible] = useState(false)
-  const [rowError, setRowError] = useState<string | null>(null)
-  const [modalError, setModalError] = useState<string | null>(null)
+export function UserSearchResult({
+  user,
+  status,
+  onSendRequest,
+  onCancelRequest,
+  onAcceptRequest,
+}: Props) {
+  const [busy, setBusy] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const handlePress = async () => {
-    if (busy) return
+    if (busy) return;
 
-    if (status === 'none') {
-      setBusy(true)
-      setRowError(null)
+    if (status === "none") {
+      setBusy(true);
+      setRowError(null);
       try {
-        await onSendRequest()
+        await onSendRequest();
       } catch (err) {
-        console.error('UserSearchResult sendRequest:', err)
-        setRowError('Could not send friend request. Try again.')
+        console.error("UserSearchResult sendRequest:", err);
+        setRowError("Could not send friend request. Try again.");
       } finally {
-        setBusy(false)
+        setBusy(false);
       }
-      return
+      return;
     }
 
-    if (status === 'pending_sent') {
-      setCancelModalVisible(true)
-      return
+    if (status === "pending_sent") {
+      setCancelModalVisible(true);
+      return;
     }
 
-    if (status === 'pending_received') {
-      setBusy(true)
-      setRowError(null)
+    if (status === "pending_received") {
+      setBusy(true);
+      setRowError(null);
       try {
-        await onAcceptRequest()
+        await onAcceptRequest();
       } catch (err) {
-        console.error('UserSearchResult acceptRequest:', err)
-        setRowError('Could not accept request. Try again.')
+        console.error("UserSearchResult acceptRequest:", err);
+        setRowError("Could not accept request. Try again.");
       } finally {
-        setBusy(false)
+        setBusy(false);
       }
     }
-  }
+  };
 
   const handleConfirmCancel = async () => {
-    setBusy(true)
-    setModalError(null)
+    setBusy(true);
+    setModalError(null);
     try {
-      await onCancelRequest()
-      setCancelModalVisible(false)
+      await onCancelRequest();
+      setCancelModalVisible(false);
     } catch (err) {
-      console.error('UserSearchResult cancelRequest:', err)
-      setModalError('Could not cancel request. Try again.')
+      console.error("UserSearchResult cancelRequest:", err);
+      setModalError("Could not cancel request. Try again.");
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
-  const buttonConfig = getButtonConfig(status)
+  const buttonConfig = getButtonConfig(status);
 
   return (
     <>
       <View>
-      <View style={styles.row}>
-        <UserAvatar
-          displayName={user.display_name}
-          avatarUrl={user.avatar_url}
-          size={40}
-          borderWidth={0}
-        />
-        <View style={styles.info}>
-          <Text style={styles.name}>{user.display_name}</Text>
+        <View style={styles.row}>
+          <UserAvatar
+            displayName={user.display_name}
+            avatarUrl={user.avatar_url}
+            size={40}
+            borderWidth={0}
+          />
+          <View style={styles.info}>
+            <Text style={styles.name}>{user.display_name}</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.button, buttonConfig.buttonStyle]}
+            onPress={handlePress}
+            disabled={busy || status === "accepted"}
+            activeOpacity={0.8}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color={buttonConfig.spinnerColor} />
+            ) : (
+              <Text style={[styles.buttonText, buttonConfig.textStyle]}>{buttonConfig.label}</Text>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.button, buttonConfig.buttonStyle]}
-          onPress={handlePress}
-          disabled={busy || status === 'accepted'}
-          activeOpacity={0.8}
-        >
-          {busy ? (
-            <ActivityIndicator size="small" color={buttonConfig.spinnerColor} />
-          ) : (
-            <Text style={[styles.buttonText, buttonConfig.textStyle]}>{buttonConfig.label}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-      {rowError ? <Text style={styles.rowErrorText}>{rowError}</Text> : null}
+        {rowError ? <Text style={styles.rowErrorText}>{rowError}</Text> : null}
       </View>
 
       <Modal
         visible={cancelModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => { if (!busy) setCancelModalVisible(false) }}
+        onRequestClose={() => {
+          if (!busy) setCancelModalVisible(false);
+        }}
       >
-        <Pressable style={styles.backdrop} onPress={() => { if (!busy) setCancelModalVisible(false) }} />
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => {
+            if (!busy) setCancelModalVisible(false);
+          }}
+        />
         <View style={styles.overlay}>
           <View style={styles.card}>
             <Text style={styles.title}>Cancel request?</Text>
@@ -138,66 +159,66 @@ export function UserSearchResult({ user, status, onSendRequest, onCancelRequest,
         </View>
       </Modal>
     </>
-  )
+  );
 }
 
 type ButtonConfig = {
-  label: string
-  buttonStyle: object
-  textStyle: object
-  spinnerColor: string
-}
+  label: string;
+  buttonStyle: object;
+  textStyle: object;
+  spinnerColor: string;
+};
 
 function getButtonConfig(status: FriendshipStatus): ButtonConfig {
   switch (status) {
-    case 'none':
+    case "none":
       return {
-        label: 'Add Friend',
+        label: "Add Friend",
         buttonStyle: styles.buttonDark,
         textStyle: styles.textLight,
-        spinnerColor: '#fff',
-      }
-    case 'pending_sent':
+        spinnerColor: "#fff",
+      };
+    case "pending_sent":
       return {
-        label: 'Pending',
+        label: "Pending",
         buttonStyle: styles.buttonGrey,
         textStyle: styles.textDark,
-        spinnerColor: '#131313',
-      }
-    case 'pending_received':
+        spinnerColor: "#131313",
+      };
+    case "pending_received":
       return {
-        label: 'Accept',
+        label: "Accept",
         buttonStyle: styles.buttonBlue,
         textStyle: styles.textLight,
-        spinnerColor: '#fff',
-      }
-    case 'accepted':
+        spinnerColor: "#fff",
+      };
+    case "accepted":
       return {
-        label: 'Friends',
+        label: "Friends",
         buttonStyle: styles.buttonOutline,
         textStyle: styles.textMuted,
-        spinnerColor: '#999',
-      }
+        spinnerColor: "#999",
+      };
   }
 }
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   card: {
-    width: '80%',
-    backgroundColor: '#FAFAF8',
+    width: "80%",
+    backgroundColor: "#FAFAF8",
     borderRadius: 24,
     padding: 24,
     gap: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -205,41 +226,41 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#131313',
+    fontWeight: "800",
+    color: "#131313",
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 14,
-    color: '#AAAAAA',
-    fontWeight: '400',
+    color: "#AAAAAA",
+    fontWeight: "400",
     marginBottom: 4,
   },
   modalButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 14,
     paddingVertical: 14,
   },
   destructiveButton: {
-    backgroundColor: '#E51E1E',
+    backgroundColor: "#E51E1E",
   },
   destructiveText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
   },
   cancelButton: {
-    backgroundColor: '#F2F2F2',
+    backgroundColor: "#F2F2F2",
   },
   cancelText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#131313',
+    fontWeight: "600",
+    color: "#131313",
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -249,53 +270,53 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#131313',
+    fontWeight: "600",
+    color: "#131313",
   },
   button: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 10,
     minWidth: 90,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   buttonDark: {
-    backgroundColor: '#131313',
+    backgroundColor: "#131313",
   },
   buttonGrey: {
-    backgroundColor: '#e5e5e5',
+    backgroundColor: "#e5e5e5",
   },
   buttonBlue: {
-    backgroundColor: '#0066FF',
+    backgroundColor: "#0066FF",
   },
   buttonOutline: {
     borderWidth: 1,
-    borderColor: '#d1d1d1',
+    borderColor: "#d1d1d1",
   },
   textLight: {
-    color: '#fff',
+    color: "#fff",
   },
   textDark: {
-    color: '#131313',
+    color: "#131313",
   },
   textMuted: {
-    color: '#999',
+    color: "#999",
   },
   rowErrorText: {
     fontSize: 12,
-    color: '#E51E1E',
-    fontWeight: '500',
+    color: "#E51E1E",
+    fontWeight: "500",
     paddingHorizontal: 16,
     paddingBottom: 6,
   },
   modalErrorText: {
     fontSize: 13,
-    color: '#E51E1E',
-    fontWeight: '500',
-    textAlign: 'center',
+    color: "#E51E1E",
+    fontWeight: "500",
+    textAlign: "center",
   },
-})
+});

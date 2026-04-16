@@ -1,50 +1,46 @@
-import { useState } from 'react'
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import * as Location from 'expo-location'
+import { useState } from "react";
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import * as Location from "expo-location";
 
 type Props = {
-  onGranted: () => void
-  onDismiss: () => void
-}
+  onGranted: () => void;
+  onDismiss: () => void;
+};
 
 export function BackgroundPermissionBanner({ onGranted, onDismiss }: Props) {
-  const [requesting, setRequesting] = useState(false)
-  const [denied, setDenied] = useState(false)
+  const [requesting, setRequesting] = useState(false);
+  const [denied, setDenied] = useState(false);
 
   const handlePress = async () => {
     if (denied) {
       // After denial, guide the user to the OS settings screen.
-      Linking.openSettings()
-      return
+      Linking.openSettings();
+      return;
     }
 
-    setRequesting(true)
+    setRequesting(true);
     try {
-      const { status } = await Location.requestBackgroundPermissionsAsync()
-      if (status === 'granted') {
-        onGranted()
+      const { status } = await Location.requestBackgroundPermissionsAsync();
+      if (status === "granted") {
+        onGranted();
       } else {
-        setDenied(true)
+        setDenied(true);
       }
     } catch (err) {
-      console.error('[BackgroundPermissionBanner] request failed:', err)
-      setDenied(true)
+      console.error("[BackgroundPermissionBanner] request failed:", err);
+      setDenied(true);
     } finally {
-      setRequesting(false)
+      setRequesting(false);
     }
-  }
+  };
 
   const message = denied
-    ? Platform.OS === 'ios'
-      ? 'Go to Settings \u2192 Location \u2192 Always to enable automatic check-ins.'
+    ? Platform.OS === "ios"
+      ? "Go to Settings \u2192 Location \u2192 Always to enable automatic check-ins."
       : 'Open Settings and allow location access "All the time" for automatic check-ins.'
-    : 'Allow background location to get automatic check-ins when you visit places.'
+    : "Allow background location to get automatic check-ins when you visit places.";
 
-  const buttonLabel = denied
-    ? 'Open Settings'
-    : requesting
-      ? 'Requesting...'
-      : 'Enable'
+  const buttonLabel = denied ? "Open Settings" : requesting ? "Requesting..." : "Enable";
 
   return (
     <View style={styles.banner}>
@@ -55,63 +51,63 @@ export function BackgroundPermissionBanner({ onGranted, onDismiss }: Props) {
             <Text style={styles.buttonText}>{buttonLabel}</Text>
           </Pressable>
           <Pressable onPress={onDismiss} style={styles.closeButton} hitSlop={8}>
-            <Text style={styles.closeText}>{'\u00D7'}</Text>
+            <Text style={styles.closeText}>{"\u00D7"}</Text>
           </Pressable>
         </View>
       </View>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 90,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(19, 19, 19, 0.88)',
+    backgroundColor: "rgba(19, 19, 19, 0.88)",
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   text: {
     flex: 1,
-    color: '#fff',
+    color: "#fff",
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 18,
   },
   actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   button: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
   buttonText: {
-    color: '#131313',
+    color: "#131313",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   closeButton: {
     width: 28,
     height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   closeText: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: "rgba(255, 255, 255, 0.6)",
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     lineHeight: 22,
   },
-})
+});
