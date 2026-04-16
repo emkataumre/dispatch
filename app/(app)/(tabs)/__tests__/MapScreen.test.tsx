@@ -65,6 +65,12 @@ jest.mock("@/components/BackgroundPermissionBanner", () => ({
   BackgroundPermissionBanner: () => null,
 }));
 
+jest.mock("@/lib/supabase", () => ({ supabase: {} }));
+
+jest.mock("@/lib/presence", () => ({
+  dismissPresence: jest.fn(() => Promise.resolve()),
+}));
+
 // ---------------------------------------------------------------------------
 // Hook mocks
 // ---------------------------------------------------------------------------
@@ -155,6 +161,13 @@ import { Tables } from "@/types/supabase";
 import MapScreen from "../index";
 
 type Poi = Tables<"pois">;
+
+// RN Text nodes render template-literal children as arrays (e.g. ["At ", "Café"]).
+// Flatten to a plain string before asserting on content.
+function childrenToString(children: unknown): string {
+  if (Array.isArray(children)) return children.map(childrenToString).join("");
+  return String(children ?? "");
+}
 
 function makePoi(overrides: Partial<Poi> = {}): Poi {
   return {
@@ -526,5 +539,165 @@ describe("MapScreen", () => {
       sheet.props.onDismissBroadcast();
     });
     expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------------
+  // BroadcastingPill visibility gating (AC 6, 7, 9)
+  // ---------------------------------------------------------------------------
+
+  // Helper: find the pill's End button by testID (present only when pill renders)
+  function pillEndButton(root: ReturnType<typeof create>): ReactTestInstance | null {
+    const results = root.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === "broadcasting-pill-end",
+    );
+    return results.length > 0 ? results[0] : null;
+  }
+
+  const MOCK_PRESENCE = {
+    id: "presence-1",
+    poi_id: "poi-1",
+    message: null,
+    visible_to: "friends" as const,
+  };
+
+  const MATCHING_POI = makePoi({ id: "poi-1", name: "Test Cafe" });
+
+  it("pill is absent when activePresence is null (no active broadcast)", async () => {
+    (usePois as jest.Mock).mockReturnValue({ pois: [MATCHING_POI], error: null });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    // No presence set — pill must not render
+    expect(pillEndButton(root!)).toBeNull();
+  });
+
+  it("pill renders when activePresence is set and viewMode is map", async () => {
+    (usePois as jest.Mock).mockReturnValue({ pois: [MATCHING_POI], error: null });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    // Set active presence via PoiBottomSheet's onBroadcast prop
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onBroadcast(MOCK_PRESENCE);
+    });
+
+    expect(pillEndButton(root!)).not.toBeNull();
+  });
+
+  it("pill is absent when viewMode is list even with an active presence", async () => {
+    (usePois as jest.Mock).mockReturnValue({ pois: [MATCHING_POI], error: null });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    // Set active presence
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onBroadcast(MOCK_PRESENCE);
+    });
+
+    // Switch to list view
+    const toggle = root!.root.findAll(
+      (n: ReactTestInstance) =>
+        n.props.testID === "view-mode-toggle" && typeof n.props.onPress === "function",
+    )[0];
+    act(() => {
+      toggle.props.onPress();
+    });
+
+    expect(pillEndButton(root!)).toBeNull();
+  });
+
+  it("pill is absent when activePresence.poi_id does not match any loaded POI", async () => {
+    // POIs loaded but none has id matching the presence's poi_id
+    (usePois as jest.Mock).mockReturnValue({
+      pois: [makePoi({ id: "poi-other", name: "Other Place" })],
+      error: null,
+    });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onBroadcast(MOCK_PRESENCE); // poi_id: "poi-1" not in pois
+    });
+
+    expect(pillEndButton(root!)).toBeNull();
+  });
+
+  it("pill is absent when pois array is empty (startup race)", async () => {
+    (usePois as jest.Mock).mockReturnValue({ pois: [], error: null });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onBroadcast(MOCK_PRESENCE);
+    });
+
+    expect(pillEndButton(root!)).toBeNull();
+  });
+
+  it("pill displays the POI name resolved from pois array", async () => {
+    (usePois as jest.Mock).mockReturnValue({
+      pois: [makePoi({ id: "poi-1", name: "The Corner Café" })],
+      error: null,
+    });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onBroadcast(MOCK_PRESENCE);
+    });
+
+    const textNodes = root!.root.findAll((n: ReactTestInstance) => (n.type as string) === "Text");
+    const labelNode = textNodes.find((n) =>
+      childrenToString(n.props.children).includes("The Corner Café"),
+    );
+    expect(labelNode).toBeDefined();
+    expect(childrenToString(labelNode!.props.children)).toContain("At The Corner Café");
+  });
+
+  it("tapping pill End calls dismissPresence with the correct presenceId and then clearBroadcast", async () => {
+    const { dismissPresence } = require("@/lib/presence");
+    (usePois as jest.Mock).mockReturnValue({ pois: [MATCHING_POI], error: null });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onBroadcast(MOCK_PRESENCE);
+    });
+
+    // Pill is now visible — tap End
+    await act(async () => {
+      pillEndButton(root!)!.props.onPress();
+    });
+
+    expect(dismissPresence).toHaveBeenCalledTimes(1);
+    expect(dismissPresence).toHaveBeenCalledWith(
+      expect.anything(), // supabase client
+      { presenceId: MOCK_PRESENCE.id },
+    );
+
+    // After dismissPresence resolves, clearBroadcast() sets activePresence to null,
+    // so the pill should no longer be visible.
+    expect(pillEndButton(root!)).toBeNull();
   });
 });

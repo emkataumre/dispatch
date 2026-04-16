@@ -115,6 +115,7 @@ export type Database = {
         Row: {
           created_at: string;
           dismissed_at: string | null;
+          expires_at: string;
           id: string;
           message: string | null;
           poi_id: string;
@@ -124,6 +125,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           dismissed_at?: string | null;
+          expires_at?: string;
           id?: string;
           message?: string | null;
           poi_id: string;
@@ -133,6 +135,7 @@ export type Database = {
         Update: {
           created_at?: string;
           dismissed_at?: string | null;
+          expires_at?: string;
           id?: string;
           message?: string | null;
           poi_id?: string;
@@ -354,7 +357,7 @@ export type Database = {
       };
     };
     Functions: {
-      [_ in never]: never;
+      checkin_window: { Args: { ts: string }; Returns: unknown };
     };
     Enums: {
       friendship_status: "pending" | "accepted";
