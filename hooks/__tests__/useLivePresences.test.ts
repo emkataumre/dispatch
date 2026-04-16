@@ -5,54 +5,58 @@
  * Mocks @/lib/supabase (initial fetch + Realtime channel) and @/hooks/useAuth.
  */
 
-import React from 'react'
-import { act, create } from 'react-test-renderer'
+import React from "react";
+import { act, create } from "react-test-renderer";
 
 // ---------------------------------------------------------------------------
 // Mock leaf fns — prefixed with "mock" so Jest hoisting allows use in factory
 // ---------------------------------------------------------------------------
-const mockNeqFn = jest.fn()
-const mockSingleFn = jest.fn()
-const mockSubscribeFn = jest.fn()
-const mockChannelOnFn = jest.fn()
-const mockUseAuth = jest.fn()
+const mockNeqFn = jest.fn();
+const mockSingleFn = jest.fn();
+const mockSubscribeFn = jest.fn();
+const mockChannelOnFn = jest.fn();
+const mockUseAuth = jest.fn();
 
 // removeChannel is declared as jest.fn() directly in the factory so it is always
 // a function at factory-run time (avoids TDZ issues with eagerly-evaluated references).
 // Tests access it via the imported supabase mock.
-jest.mock('@/lib/supabase', () => ({
+jest.mock("@/lib/supabase", () => ({
   supabase: {
     from: jest.fn((table: string) => {
-      if (table === 'profiles') {
-        return { select: jest.fn(() => ({ eq: jest.fn(() => ({ single: mockSingleFn })) })) }
+      if (table === "profiles") {
+        return { select: jest.fn(() => ({ eq: jest.fn(() => ({ single: mockSingleFn })) })) };
       }
       // live_presence
-      return { select: jest.fn(() => ({ is: jest.fn(() => ({ neq: mockNeqFn })) })) }
+      return { select: jest.fn(() => ({ is: jest.fn(() => ({ neq: mockNeqFn })) })) };
     }),
     channel: jest.fn(() => ({ on: mockChannelOnFn, subscribe: mockSubscribeFn })),
     removeChannel: jest.fn(),
   },
-}))
+}));
 
-jest.mock('@/hooks/useAuth', () => ({ useAuth: () => mockUseAuth() }))
+jest.mock("@/hooks/useAuth", () => ({ useAuth: () => mockUseAuth() }));
 
-import { supabase } from '@/lib/supabase'
-import { useLivePresences } from '../useLivePresences'
+import { supabase } from "@/lib/supabase";
+import { useLivePresences } from "../useLivePresences";
 
-type HookResult<T> = { current: T }
+type HookResult<T> = { current: T };
 
 function renderHook<T>(useHook: () => T): HookResult<T> {
-  const result: HookResult<T> = { current: undefined as unknown as T }
+  const result: HookResult<T> = { current: undefined as unknown as T };
   function TestComponent() {
-    result.current = useHook()
-    return null
+    result.current = useHook();
+    return null;
   }
-  act(() => { create(React.createElement(TestComponent)) })
-  return result
+  act(() => {
+    create(React.createElement(TestComponent));
+  });
+  return result;
 }
 
 async function flush() {
-  await act(async () => { await Promise.resolve() })
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -60,552 +64,619 @@ async function flush() {
 // ---------------------------------------------------------------------------
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'presence-1',
-    user_id: 'user-2',
-    poi_id: 'poi-1',
-    message: 'grabbing coffee',
-    profiles: { display_name: 'Jane Doe', avatar_url: null },
+    id: "presence-1",
+    user_id: "user-2",
+    poi_id: "poi-1",
+    message: "grabbing coffee",
+    profiles: { display_name: "Jane Doe", avatar_url: null },
     ...overrides,
-  }
+  };
 }
 
 function makeInsertPayload(overrides: Record<string, unknown> = {}) {
   return {
     new: {
-      id: 'presence-2',
-      user_id: 'user-3',
-      poi_id: 'poi-1',
-      message: 'hey',
+      id: "presence-2",
+      user_id: "user-3",
+      poi_id: "poi-1",
+      message: "hey",
       dismissed_at: null,
-      visible_to: 'community',
-      created_at: '2026-01-01T00:00:00Z',
+      visible_to: "community",
+      created_at: "2026-01-01T00:00:00Z",
       ...overrides,
     },
-  }
+  };
 }
 
 // Capture INSERT/UPDATE handlers after the hook mounts
 function getCapturedHandlers() {
   const insertCall = mockChannelOnFn.mock.calls.find(
-    (c: unknown[]) => (c[1] as { event: string }).event === 'INSERT'
-  )
+    (c: unknown[]) => (c[1] as { event: string }).event === "INSERT",
+  );
   const updateCall = mockChannelOnFn.mock.calls.find(
-    (c: unknown[]) => (c[1] as { event: string }).event === 'UPDATE'
-  )
+    (c: unknown[]) => (c[1] as { event: string }).event === "UPDATE",
+  );
   return {
     insertHandler: insertCall?.[2] as ((p: unknown) => Promise<void>) | undefined,
     updateHandler: updateCall?.[2] as ((p: unknown) => void) | undefined,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 beforeEach(() => {
-  jest.clearAllMocks()
-  mockUseAuth.mockReturnValue({ session: { user: { id: 'user-1' } } })
-  mockNeqFn.mockResolvedValue({ data: [], error: null })
+  jest.clearAllMocks();
+  mockUseAuth.mockReturnValue({ session: { user: { id: "user-1" } } });
+  mockNeqFn.mockResolvedValue({ data: [], error: null });
   // Make .on() chainable and capture event/handler
   mockChannelOnFn.mockImplementation((_event: string, _filter: unknown, _handler: unknown) => ({
     on: mockChannelOnFn,
     subscribe: mockSubscribeFn,
-  }))
-  mockSubscribeFn.mockReturnValue('mock-channel-ref')
-})
+  }));
+  mockSubscribeFn.mockReturnValue("mock-channel-ref");
+});
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-describe('useLivePresences', () => {
-  it('returns empty presences when initial fetch returns no rows', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+describe("useLivePresences", () => {
+  it("returns empty presences when initial fetch returns no rows", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(result.current.presences).toEqual([])
-    expect(result.current.loading).toBe(false)
-  })
+    expect(result.current.presences).toEqual([]);
+    expect(result.current.loading).toBe(false);
+  });
 
-  it('maps initial fetch rows to LivePresenceEntry correctly', async () => {
-    mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null })
+  it("maps initial fetch rows to LivePresenceEntry correctly", async () => {
+    mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
     expect(result.current.presences).toEqual([
       {
-        id: 'presence-1',
-        userId: 'user-2',
-        poiId: 'poi-1',
-        displayName: 'Jane Doe',
+        id: "presence-1",
+        userId: "user-2",
+        poiId: "poi-1",
+        displayName: "Jane Doe",
         avatarUrl: null,
-        message: 'grabbing coffee',
+        message: "grabbing coffee",
       },
-    ])
-  })
+    ]);
+  });
 
-  it('does not include current user in initial fetch results', async () => {
+  it("does not include current user in initial fetch results", async () => {
     // The neq filter is applied by the DB; confirm the hook passes the right userId
-    const { supabase } = require('@/lib/supabase')
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+    const { supabase } = require("@/lib/supabase");
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    renderHook(() => useLivePresences([]))
-    await flush()
+    renderHook(() => useLivePresences([]));
+    await flush();
 
     // find the neq call on the live_presence chain
     const fromCall = (supabase.from as jest.Mock).mock.calls.find(
-      (c: string[]) => c[0] === 'live_presence'
-    )
-    expect(fromCall).toBeDefined()
+      (c: string[]) => c[0] === "live_presence",
+    );
+    expect(fromCall).toBeDefined();
     // neq is the last call in the chain — it should have been called with ('user_id', 'user-1')
-    expect(mockNeqFn).toHaveBeenCalledWith('user_id', 'user-1')
-  })
+    expect(mockNeqFn).toHaveBeenCalledWith("user_id", "user-1");
+  });
 
-  it('adds a presence on INSERT and always fetches fresh profile', async () => {
+  it("adds a presence on INSERT and always fetches fresh profile", async () => {
     // Seed via initial fetch (user-2 is cached with "Jane Doe")
-    mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null })
+    mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null });
     mockSingleFn.mockResolvedValue({
-      data: { display_name: 'Jane Doe Updated', avatar_url: 'https://example.com/new.jpg' },
+      data: { display_name: "Jane Doe Updated", avatar_url: "https://example.com/new.jpg" },
       error: null,
-    })
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    });
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
-    expect(insertHandler).toBeDefined()
+    const { insertHandler } = getCapturedHandlers();
+    expect(insertHandler).toBeDefined();
 
     // Fire INSERT for same user — should fetch fresh profile, not use cache
     await act(async () => {
-      await insertHandler!(makeInsertPayload({ user_id: 'user-2', id: 'presence-3' }))
-    })
+      await insertHandler!(makeInsertPayload({ user_id: "user-2", id: "presence-3" }));
+    });
 
-    expect(result.current.presences).toHaveLength(2)
-    expect(result.current.presences[1].id).toBe('presence-3')
-    expect(result.current.presences[1].displayName).toBe('Jane Doe Updated')
-    expect(result.current.presences[1].avatarUrl).toBe('https://example.com/new.jpg')
-    expect(mockSingleFn).toHaveBeenCalledTimes(1) // always fetches fresh
-  })
+    expect(result.current.presences).toHaveLength(2);
+    expect(result.current.presences[1].id).toBe("presence-3");
+    expect(result.current.presences[1].displayName).toBe("Jane Doe Updated");
+    expect(result.current.presences[1].avatarUrl).toBe("https://example.com/new.jpg");
+    expect(mockSingleFn).toHaveBeenCalledTimes(1); // always fetches fresh
+  });
 
-  it('fetches fresh profile on INSERT when user has no prior cache entry', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("fetches fresh profile on INSERT when user has no prior cache entry", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
     mockSingleFn.mockResolvedValue({
-      data: { display_name: 'Bob Smith', avatar_url: 'https://example.com/bob.jpg' },
+      data: { display_name: "Bob Smith", avatar_url: "https://example.com/bob.jpg" },
       error: null,
-    })
+    });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
-    await act(async () => { await insertHandler!(makeInsertPayload()) })
+    const { insertHandler } = getCapturedHandlers();
+    await act(async () => {
+      await insertHandler!(makeInsertPayload());
+    });
 
-    expect(mockSingleFn).toHaveBeenCalledTimes(1)
-    expect(result.current.presences).toHaveLength(1)
-    expect(result.current.presences[0].displayName).toBe('Bob Smith')
-    expect(result.current.presences[0].avatarUrl).toBe('https://example.com/bob.jpg')
-  })
+    expect(mockSingleFn).toHaveBeenCalledTimes(1);
+    expect(result.current.presences).toHaveLength(1);
+    expect(result.current.presences[0].displayName).toBe("Bob Smith");
+    expect(result.current.presences[0].avatarUrl).toBe("https://example.com/bob.jpg");
+  });
 
-  it('removes a presence on UPDATE when dismissed_at is set', async () => {
-    mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null })
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+  it("removes a presence on UPDATE when dismissed_at is set", async () => {
+    mockNeqFn.mockResolvedValue({ data: [makeRow()], error: null });
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(result.current.presences).toHaveLength(1)
+    expect(result.current.presences).toHaveLength(1);
 
-    const { updateHandler } = getCapturedHandlers()
+    const { updateHandler } = getCapturedHandlers();
     act(() => {
       updateHandler!({
-        new: { id: 'presence-1', user_id: 'user-2', dismissed_at: '2026-01-01T01:00:00Z' },
-      })
-    })
+        new: { id: "presence-1", user_id: "user-2", dismissed_at: "2026-01-01T01:00:00Z" },
+      });
+    });
 
-    expect(result.current.presences).toHaveLength(0)
-  })
+    expect(result.current.presences).toHaveLength(0);
+  });
 
-  it('ignores INSERT from the current user', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+  it("ignores INSERT from the current user", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
+    const { insertHandler } = getCapturedHandlers();
     await act(async () => {
-      await insertHandler!(makeInsertPayload({ user_id: 'user-1' })) // own user
-    })
+      await insertHandler!(makeInsertPayload({ user_id: "user-1" })); // own user
+    });
 
-    expect(result.current.presences).toHaveLength(0)
-  })
+    expect(result.current.presences).toHaveLength(0);
+  });
 
-  it('ignores INSERT when dismissed_at is already set', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+  it("ignores INSERT when dismissed_at is already set", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
+    const { insertHandler } = getCapturedHandlers();
     await act(async () => {
-      await insertHandler!(makeInsertPayload({ dismissed_at: '2026-01-01T00:00:00Z' }))
-    })
+      await insertHandler!(makeInsertPayload({ dismissed_at: "2026-01-01T00:00:00Z" }));
+    });
 
-    expect(result.current.presences).toHaveLength(0)
-  })
+    expect(result.current.presences).toHaveLength(0);
+  });
 
-  it('loading is true before the fetch resolves', () => {
-    let resolve!: (v: { data: unknown[]; error: null }) => void
-    mockNeqFn.mockReturnValue(new Promise((r) => { resolve = r }))
+  it("loading is true before the fetch resolves", () => {
+    let resolve!: (v: { data: unknown[]; error: null }) => void;
+    mockNeqFn.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
 
-    const result = renderHook(() => useLivePresences([]))
-    expect(result.current.loading).toBe(true)
+    const result = renderHook(() => useLivePresences([]));
+    expect(result.current.loading).toBe(true);
 
-    act(() => { resolve({ data: [], error: null }) })
-  })
+    act(() => {
+      resolve({ data: [], error: null });
+    });
+  });
 
-  it('sets error state when initial fetch fails', async () => {
-    mockNeqFn.mockResolvedValue({ data: null, error: { message: 'network failure' } })
+  it("sets error state when initial fetch fails", async () => {
+    mockNeqFn.mockResolvedValue({ data: null, error: { message: "network failure" } });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(result.current.error).toBe('network failure')
-    expect(result.current.loading).toBe(false)
-  })
+    expect(result.current.error).toBe("network failure");
+    expect(result.current.loading).toBe(false);
+  });
 
-  it('falls back to Unknown when profile fetch fails and no cached entry exists', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
-    mockSingleFn.mockResolvedValue({ data: null, error: { message: 'not found' } })
+  it("falls back to Unknown when profile fetch fails and no cached entry exists", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
+    mockSingleFn.mockResolvedValue({ data: null, error: { message: "not found" } });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
-    await act(async () => { await insertHandler!(makeInsertPayload()) })
+    const { insertHandler } = getCapturedHandlers();
+    await act(async () => {
+      await insertHandler!(makeInsertPayload());
+    });
 
-    expect(result.current.presences).toHaveLength(1)
-    expect(result.current.presences[0].displayName).toBe('Unknown')
-    expect(result.current.presences[0].avatarUrl).toBeNull()
-  })
+    expect(result.current.presences).toHaveLength(1);
+    expect(result.current.presences[0].displayName).toBe("Unknown");
+    expect(result.current.presences[0].avatarUrl).toBeNull();
+  });
 
-  it('updates the message field on a non-dismissal UPDATE', async () => {
-    mockNeqFn.mockResolvedValue({ data: [makeRow({ message: 'original' })], error: null })
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+  it("updates the message field on a non-dismissal UPDATE", async () => {
+    mockNeqFn.mockResolvedValue({ data: [makeRow({ message: "original" })], error: null });
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(result.current.presences[0].message).toBe('original')
+    expect(result.current.presences[0].message).toBe("original");
 
-    const { updateHandler } = getCapturedHandlers()
+    const { updateHandler } = getCapturedHandlers();
     act(() => {
       updateHandler!({
-        new: { id: 'presence-1', user_id: 'user-2', dismissed_at: null, message: 'updated' },
-      })
-    })
+        new: { id: "presence-1", user_id: "user-2", dismissed_at: null, message: "updated" },
+      });
+    });
 
-    expect(result.current.presences).toHaveLength(1)
-    expect(result.current.presences[0].message).toBe('updated')
-  })
+    expect(result.current.presences).toHaveLength(1);
+    expect(result.current.presences[0].message).toBe("updated");
+  });
 
-  it('does not deduplicate unrelated presences on successive INSERTs', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("does not deduplicate unrelated presences on successive INSERTs", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
     mockSingleFn.mockResolvedValue({
-      data: { display_name: 'Bob', avatar_url: null },
+      data: { display_name: "Bob", avatar_url: null },
       error: null,
-    })
+    });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
-    await act(async () => { await insertHandler!(makeInsertPayload({ id: 'p-a' })) })
-    await act(async () => { await insertHandler!(makeInsertPayload({ id: 'p-b' })) })
+    const { insertHandler } = getCapturedHandlers();
+    await act(async () => {
+      await insertHandler!(makeInsertPayload({ id: "p-a" }));
+    });
+    await act(async () => {
+      await insertHandler!(makeInsertPayload({ id: "p-b" }));
+    });
 
-    expect(result.current.presences).toHaveLength(2)
-  })
+    expect(result.current.presences).toHaveLength(2);
+  });
 
-  it('does not add the same presence twice on duplicate INSERTs', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("does not add the same presence twice on duplicate INSERTs", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
     mockSingleFn.mockResolvedValue({
-      data: { display_name: 'Bob', avatar_url: null },
+      data: { display_name: "Bob", avatar_url: null },
       error: null,
-    })
+    });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    const { insertHandler } = getCapturedHandlers()
-    const payload = makeInsertPayload({ id: 'presence-dup' })
-    await act(async () => { await insertHandler!(payload) })
-    await act(async () => { await insertHandler!(payload) })
+    const { insertHandler } = getCapturedHandlers();
+    const payload = makeInsertPayload({ id: "presence-dup" });
+    await act(async () => {
+      await insertHandler!(payload);
+    });
+    await act(async () => {
+      await insertHandler!(payload);
+    });
 
-    expect(result.current.presences).toHaveLength(1)
-  })
+    expect(result.current.presences).toHaveLength(1);
+  });
 
-  it('calls removeChannel on unmount', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("calls removeChannel on unmount", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    let unmount!: () => void
+    let unmount!: () => void;
     act(() => {
       const renderer = create(
         React.createElement(function TestComponent() {
-          useLivePresences([])
-          return null
-        })
-      )
-      unmount = () => renderer.unmount()
-    })
-    await flush()
+          useLivePresences([]);
+          return null;
+        }),
+      );
+      unmount = () => renderer.unmount();
+    });
+    await flush();
 
-    act(() => { unmount() })
+    act(() => {
+      unmount();
+    });
 
-    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(1)
-  })
+    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(1);
+  });
 
-  it('returns empty presences when user is not authenticated', async () => {
-    mockUseAuth.mockReturnValue({ session: null })
+  it("returns empty presences when user is not authenticated", async () => {
+    mockUseAuth.mockReturnValue({ session: null });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(result.current.presences).toEqual([])
-    expect(result.current.loading).toBe(false)
-    expect(mockNeqFn).not.toHaveBeenCalled()
-  })
+    expect(result.current.presences).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(mockNeqFn).not.toHaveBeenCalled();
+  });
 
-  it('creates only one channel when friendIds is empty', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("creates only one channel when friendIds is empty", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    renderHook(() => useLivePresences([]))
-    await flush()
+    renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect((supabase as any).channel).toHaveBeenCalledTimes(1)
-  })
+    expect((supabase as any).channel).toHaveBeenCalledTimes(1);
+  });
 
-  it('creates two channels when friendIds is non-empty', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("creates two channels when friendIds is non-empty", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    renderHook(() => useLivePresences(['user-5', 'user-6']))
-    await flush()
+    renderHook(() => useLivePresences(["user-5", "user-6"]));
+    await flush();
 
-    expect((supabase as any).channel).toHaveBeenCalledTimes(2)
-  })
+    expect((supabase as any).channel).toHaveBeenCalledTimes(2);
+  });
 
-  it('friends channel INSERT fires for friends-only broadcasts', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("friends channel INSERT fires for friends-only broadcasts", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
     mockSingleFn.mockResolvedValue({
-      data: { display_name: 'Friend User', avatar_url: null },
+      data: { display_name: "Friend User", avatar_url: null },
       error: null,
-    })
+    });
 
-    const result = renderHook(() => useLivePresences(['user-5']))
-    await flush()
+    const result = renderHook(() => useLivePresences(["user-5"]));
+    await flush();
 
     // Friends channel INSERT handler is the second INSERT .on() call
     const friendsInsertHandler = mockChannelOnFn.mock.calls.filter(
-      (c: unknown[]) => (c[1] as { event: string }).event === 'INSERT'
-    )[1]?.[2] as ((p: unknown) => Promise<void>) | undefined
-    expect(friendsInsertHandler).toBeDefined()
+      (c: unknown[]) => (c[1] as { event: string }).event === "INSERT",
+    )[1]?.[2] as ((p: unknown) => Promise<void>) | undefined;
+    expect(friendsInsertHandler).toBeDefined();
 
     await act(async () => {
-      await friendsInsertHandler!(makeInsertPayload({ user_id: 'user-5', id: 'p-friends', visible_to: 'friends' }))
-    })
+      await friendsInsertHandler!(
+        makeInsertPayload({ user_id: "user-5", id: "p-friends", visible_to: "friends" }),
+      );
+    });
 
-    expect(result.current.presences).toHaveLength(1)
-    expect(result.current.presences[0].id).toBe('p-friends')
-  })
+    expect(result.current.presences).toHaveLength(1);
+    expect(result.current.presences[0].id).toBe("p-friends");
+  });
 
-  it('friends channel skips community broadcasts from friends', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("friends channel skips community broadcasts from friends", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
     mockSingleFn.mockResolvedValue({
-      data: { display_name: 'Friend User', avatar_url: null },
+      data: { display_name: "Friend User", avatar_url: null },
       error: null,
-    })
+    });
 
-    const result = renderHook(() => useLivePresences(['user-5']))
-    await flush()
+    const result = renderHook(() => useLivePresences(["user-5"]));
+    await flush();
 
     // Friends channel INSERT handler is the second INSERT .on() call
     const friendsInsertHandler = mockChannelOnFn.mock.calls.filter(
-      (c: unknown[]) => (c[1] as { event: string }).event === 'INSERT'
-    )[1]?.[2] as ((p: unknown) => Promise<void>) | undefined
-    expect(friendsInsertHandler).toBeDefined()
+      (c: unknown[]) => (c[1] as { event: string }).event === "INSERT",
+    )[1]?.[2] as ((p: unknown) => Promise<void>) | undefined;
+    expect(friendsInsertHandler).toBeDefined();
 
     // visible_to === 'community' — should be skipped by the friends handler guard
     await act(async () => {
-      await friendsInsertHandler!(makeInsertPayload({ user_id: 'user-5', id: 'p-community', visible_to: 'community' }))
-    })
+      await friendsInsertHandler!(
+        makeInsertPayload({ user_id: "user-5", id: "p-community", visible_to: "community" }),
+      );
+    });
 
-    expect(result.current.presences).toHaveLength(0)
-    expect(mockSingleFn).not.toHaveBeenCalled()
-  })
+    expect(result.current.presences).toHaveLength(0);
+    expect(mockSingleFn).not.toHaveBeenCalled();
+  });
 
-  it('calls removeChannel for both channels on unmount when friendIds is non-empty', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("calls removeChannel for both channels on unmount when friendIds is non-empty", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    let unmount!: () => void
+    let unmount!: () => void;
     act(() => {
       const renderer = create(
         React.createElement(function TestComponent() {
-          useLivePresences(['user-5', 'user-6'])
-          return null
-        })
-      )
-      unmount = () => renderer.unmount()
-    })
-    await flush()
+          useLivePresences(["user-5", "user-6"]);
+          return null;
+        }),
+      );
+      unmount = () => renderer.unmount();
+    });
+    await flush();
 
-    act(() => { unmount() })
+    act(() => {
+      unmount();
+    });
 
-    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(2)
-  })
+    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(2);
+  });
 
-  it('re-subscribes and creates friends channel when friendIds changes', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("re-subscribes and creates friends channel when friendIds changes", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    let setFriendIds!: (ids: string[]) => void
+    let setFriendIds!: (ids: string[]) => void;
     function TestWrapper() {
-      const [ids, setIds] = React.useState<string[]>([])
-      setFriendIds = setIds
-      useLivePresences(ids)
-      return null
+      const [ids, setIds] = React.useState<string[]>([]);
+      setFriendIds = setIds;
+      useLivePresences(ids);
+      return null;
     }
 
-    act(() => { create(React.createElement(TestWrapper)) })
-    await flush()
+    act(() => {
+      create(React.createElement(TestWrapper));
+    });
+    await flush();
 
     // Initial render with no friends: one community channel
-    expect((supabase as any).channel).toHaveBeenCalledTimes(1)
-    expect((supabase as any).removeChannel).not.toHaveBeenCalled()
+    expect((supabase as any).channel).toHaveBeenCalledTimes(1);
+    expect((supabase as any).removeChannel).not.toHaveBeenCalled();
 
     // Change friendIds — effect should tear down old channel and create two new ones
-    await act(async () => { setFriendIds(['user-5']) })
-    await flush()
+    await act(async () => {
+      setFriendIds(["user-5"]);
+    });
+    await flush();
 
-    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(1)
-    expect((supabase as any).channel).toHaveBeenCalledTimes(3) // 1 original + 2 new
-  })
+    expect((supabase as any).removeChannel).toHaveBeenCalledTimes(1);
+    expect((supabase as any).channel).toHaveBeenCalledTimes(3); // 1 original + 2 new
+  });
 
-  it('does not trigger fetchPresences on second channel initial SUBSCRIBED', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("does not trigger fetchPresences on second channel initial SUBSCRIBED", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    renderHook(() => useLivePresences(['user-5']))
-    await flush()
+    renderHook(() => useLivePresences(["user-5"]));
+    await flush();
 
     // fetchPresences called exactly once on initial mount
-    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+    expect(mockNeqFn).toHaveBeenCalledTimes(1);
 
     // Capture the two status handlers passed to .subscribe()
     const [communityHandler, friendsHandler] = mockSubscribeFn.mock.calls.map(
-      (c: unknown[]) => c[0] as (status: string) => void
-    )
+      (c: unknown[]) => c[0] as (status: string) => void,
+    );
 
     // Fire initial SUBSCRIBED on community — should NOT trigger a refetch
-    act(() => { communityHandler('SUBSCRIBED') })
-    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+    act(() => {
+      communityHandler("SUBSCRIBED");
+    });
+    expect(mockNeqFn).toHaveBeenCalledTimes(1);
 
     // Fire initial SUBSCRIBED on friends — should NOT trigger a refetch
-    act(() => { friendsHandler('SUBSCRIBED') })
-    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+    act(() => {
+      friendsHandler("SUBSCRIBED");
+    });
+    expect(mockNeqFn).toHaveBeenCalledTimes(1);
 
     // Fire SUBSCRIBED again on community (reconnect) — should refetch
-    await act(async () => { communityHandler('SUBSCRIBED') })
-    await flush()
-    expect(mockNeqFn).toHaveBeenCalledTimes(2)
-  })
+    await act(async () => {
+      communityHandler("SUBSCRIBED");
+    });
+    await flush();
+    expect(mockNeqFn).toHaveBeenCalledTimes(2);
+  });
 
-  it('refetches presences and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("refetches presences and clears error after CHANNEL_ERROR + SUBSCRIBED reconnect", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+    expect(mockNeqFn).toHaveBeenCalledTimes(1);
 
-    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (status: string, err?: Error) => void
+    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (
+      status: string,
+      err?: Error,
+    ) => void;
 
     // Initial SUBSCRIBED — marks channel as ever-subscribed, no refetch
-    act(() => { communityHandler('SUBSCRIBED') })
-    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+    act(() => {
+      communityHandler("SUBSCRIBED");
+    });
+    expect(mockNeqFn).toHaveBeenCalledTimes(1);
 
     // Channel error — sets error state
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    act(() => { communityHandler('CHANNEL_ERROR') })
-    expect(result.current.error).not.toBeNull()
-    consoleSpy.mockRestore()
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+    act(() => {
+      communityHandler("CHANNEL_ERROR");
+    });
+    expect(result.current.error).not.toBeNull();
+    consoleSpy.mockRestore();
 
     // Reconnect — should re-fetch; error cleared only after fetchPresences resolves
-    await act(async () => { communityHandler('SUBSCRIBED') })
-    await flush()
+    await act(async () => {
+      communityHandler("SUBSCRIBED");
+    });
+    await flush();
 
-    expect(mockNeqFn).toHaveBeenCalledTimes(2)
-    expect(result.current.error).toBeNull()
-  })
+    expect(mockNeqFn).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+  });
 
-  it('refetches after TIMED_OUT + SUBSCRIBED reconnect', async () => {
-    mockNeqFn.mockResolvedValue({ data: [], error: null })
+  it("refetches after TIMED_OUT + SUBSCRIBED reconnect", async () => {
+    mockNeqFn.mockResolvedValue({ data: [], error: null });
 
-    const result = renderHook(() => useLivePresences([]))
-    await flush()
+    const result = renderHook(() => useLivePresences([]));
+    await flush();
 
-    expect(mockNeqFn).toHaveBeenCalledTimes(1)
+    expect(mockNeqFn).toHaveBeenCalledTimes(1);
 
-    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (status: string, err?: Error) => void
+    const communityHandler = mockSubscribeFn.mock.calls[0][0] as (
+      status: string,
+      err?: Error,
+    ) => void;
 
-    act(() => { communityHandler('SUBSCRIBED') })
+    act(() => {
+      communityHandler("SUBSCRIBED");
+    });
 
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    act(() => { communityHandler('TIMED_OUT') })
-    expect(result.current.error).not.toBeNull()
-    consoleSpy.mockRestore()
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+    act(() => {
+      communityHandler("TIMED_OUT");
+    });
+    expect(result.current.error).not.toBeNull();
+    consoleSpy.mockRestore();
 
-    await act(async () => { communityHandler('SUBSCRIBED') })
-    await flush()
+    await act(async () => {
+      communityHandler("SUBSCRIBED");
+    });
+    await flush();
 
-    expect(mockNeqFn).toHaveBeenCalledTimes(2)
-    expect(result.current.error).toBeNull()
-  })
+    expect(mockNeqFn).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+  });
 
-  it('allHealthy gate: error cleared only when both channels have initial SUBSCRIBED', async () => {
+  it("allHealthy gate: error cleared only when both channels have initial SUBSCRIBED", async () => {
     // Initial fetch fails — sets an error
-    mockNeqFn.mockResolvedValue({ data: null, error: { message: 'network down' } })
+    mockNeqFn.mockResolvedValue({ data: null, error: { message: "network down" } });
 
-    const result = renderHook(() => useLivePresences(['user-5']))
-    await flush()
+    const result = renderHook(() => useLivePresences(["user-5"]));
+    await flush();
 
-    expect(result.current.error).toBe('network down')
+    expect(result.current.error).toBe("network down");
 
     const [communityHandler, friendsHandler] = mockSubscribeFn.mock.calls.map(
-      (c: unknown[]) => c[0] as (status: string) => void
-    )
+      (c: unknown[]) => c[0] as (status: string) => void,
+    );
 
     // Community subscribes first (initial connect) — friends not yet healthy
-    act(() => { communityHandler('SUBSCRIBED') })
-    expect(result.current.error).toBe('network down') // error stays — not allHealthy yet
+    act(() => {
+      communityHandler("SUBSCRIBED");
+    });
+    expect(result.current.error).toBe("network down"); // error stays — not allHealthy yet
 
     // Friends channel also subscribes — now allHealthy, error clears
-    act(() => { friendsHandler('SUBSCRIBED') })
-    expect(result.current.error).toBeNull()
-  })
+    act(() => {
+      friendsHandler("SUBSCRIBED");
+    });
+    expect(result.current.error).toBeNull();
+  });
 
-  it('friends channel UPDATE handler skips community-visible updates from friends', async () => {
-    mockNeqFn.mockResolvedValue({ data: [makeRow({ user_id: 'user-5', message: 'original' })], error: null })
+  it("friends channel UPDATE handler skips community-visible updates from friends", async () => {
+    mockNeqFn.mockResolvedValue({
+      data: [makeRow({ user_id: "user-5", message: "original" })],
+      error: null,
+    });
 
-    const result = renderHook(() => useLivePresences(['user-5']))
-    await flush()
+    const result = renderHook(() => useLivePresences(["user-5"]));
+    await flush();
 
-    expect(result.current.presences).toHaveLength(1)
-    expect(result.current.presences[0].message).toBe('original')
+    expect(result.current.presences).toHaveLength(1);
+    expect(result.current.presences[0].message).toBe("original");
 
     // Friends channel UPDATE handler is the second UPDATE .on() call
     const friendsUpdateHandler = mockChannelOnFn.mock.calls.filter(
-      (c: unknown[]) => (c[1] as { event: string }).event === 'UPDATE'
-    )[1]?.[2] as ((p: unknown) => void) | undefined
-    expect(friendsUpdateHandler).toBeDefined()
+      (c: unknown[]) => (c[1] as { event: string }).event === "UPDATE",
+    )[1]?.[2] as ((p: unknown) => void) | undefined;
+    expect(friendsUpdateHandler).toBeDefined();
 
     // community-visible UPDATE from a friend — should be ignored by the friends handler guard
     act(() => {
       friendsUpdateHandler!({
-        new: { id: 'presence-1', user_id: 'user-5', dismissed_at: null, message: 'updated', visible_to: 'community' },
-      })
-    })
+        new: {
+          id: "presence-1",
+          user_id: "user-5",
+          dismissed_at: null,
+          message: "updated",
+          visible_to: "community",
+        },
+      });
+    });
 
     // Message should NOT have changed (community updates travel through the community channel)
-    expect(result.current.presences[0].message).toBe('original')
-  })
-})
+    expect(result.current.presences[0].message).toBe("original");
+  });
+});

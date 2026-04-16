@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from "react";
 import {
   View,
   Text,
@@ -10,66 +10,77 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-} from 'react-native'
-import { supabase } from '@/lib/supabase'
-import { broadcastPresence, ActivePresence, VisibilityType } from '@/lib/presence'
+} from "react-native";
+import { supabase } from "@/lib/supabase";
+import { broadcastPresence, ActivePresence, VisibilityType } from "@/lib/presence";
 
 export type BroadcastModalHandle = {
-  present: () => void
-  dismiss: () => void
-}
+  present: () => void;
+  dismiss: () => void;
+};
 
 type Props = {
-  poiId: string
-  onSubmitted: (presence: ActivePresence) => void
-}
+  poiId: string;
+  onSubmitted: (presence: ActivePresence) => void;
+};
 
 export const BroadcastModal = forwardRef<BroadcastModalHandle, Props>(function BroadcastModal(
   { poiId, onSubmitted },
-  ref
+  ref,
 ) {
-  const [visible, setVisible] = useState(false)
-  const [message, setMessage] = useState('')
-  const [visibleTo, setVisibleTo] = useState<VisibilityType>('friends')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false);
+  const [message, setMessage] = useState("");
+  const [visibleTo, setVisibleTo] = useState<VisibilityType>("friends");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     present: () => {
-      setMessage('')
-      setVisibleTo('friends')
-      setError(null)
-      setVisible(true)
+      setMessage("");
+      setVisibleTo("friends");
+      setError(null);
+      setVisible(true);
     },
     dismiss: () => setVisible(false),
-  }))
+  }));
 
   const handleSubmit = async () => {
-    setSubmitting(true)
-    setError(null)
+    setSubmitting(true);
+    setError(null);
     try {
-      const presence = await broadcastPresence(supabase, { poiId, message, visibleTo })
-      onSubmitted(presence)
-      setVisible(false)
+      const presence = await broadcastPresence(supabase, {
+        poiId,
+        message,
+        visibleTo,
+      });
+      onSubmitted(presence);
+      setVisible(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong')
+      setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={() => { if (!submitting) setVisible(false) }}
+      onRequestClose={() => {
+        if (!submitting) setVisible(false);
+      }}
     >
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Pressable style={styles.backdrop} onPress={() => { if (!submitting) setVisible(false) }} />
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => {
+            if (!submitting) setVisible(false);
+          }}
+        />
 
         <View style={styles.card}>
           {/* Header */}
@@ -95,20 +106,24 @@ export const BroadcastModal = forwardRef<BroadcastModalHandle, Props>(function B
           {/* Visibility toggle */}
           <View style={styles.segmentedControl}>
             <TouchableOpacity
-              style={[styles.segment, visibleTo === 'friends' && styles.segmentActive]}
-              onPress={() => setVisibleTo('friends')}
+              style={[styles.segment, visibleTo === "friends" && styles.segmentActive]}
+              onPress={() => setVisibleTo("friends")}
               activeOpacity={0.85}
             >
-              <Text style={[styles.segmentText, visibleTo === 'friends' && styles.segmentTextActive]}>
+              <Text
+                style={[styles.segmentText, visibleTo === "friends" && styles.segmentTextActive]}
+              >
                 Friends
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.segment, visibleTo === 'community' && styles.segmentActive]}
-              onPress={() => setVisibleTo('community')}
+              style={[styles.segment, visibleTo === "community" && styles.segmentActive]}
+              onPress={() => setVisibleTo("community")}
               activeOpacity={0.85}
             >
-              <Text style={[styles.segmentText, visibleTo === 'community' && styles.segmentTextActive]}>
+              <Text
+                style={[styles.segmentText, visibleTo === "community" && styles.segmentTextActive]}
+              >
                 Community
               </Text>
             </TouchableOpacity>
@@ -138,26 +153,26 @@ export const BroadcastModal = forwardRef<BroadcastModalHandle, Props>(function B
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  )
-})
+  );
+});
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   card: {
-    width: '88%',
-    backgroundColor: '#FAFAF8',
+    width: "88%",
+    backgroundColor: "#FAFAF8",
     borderRadius: 24,
     padding: 24,
     gap: 18,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -168,102 +183,102 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
-    color: '#131313',
+    fontWeight: "800",
+    color: "#131313",
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: '#AAAAAA',
-    fontWeight: '400',
+    color: "#AAAAAA",
+    fontWeight: "400",
   },
   inputWrapper: {
-    position: 'relative',
+    position: "relative",
   },
   input: {
     borderWidth: 1.5,
-    borderColor: '#EDECEA',
+    borderColor: "#EDECEA",
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingTop: 13,
     paddingBottom: 32,
     fontSize: 15,
-    color: '#131313',
+    color: "#131313",
     minHeight: 90,
-    textAlignVertical: 'top',
-    backgroundColor: '#fff',
+    textAlignVertical: "top",
+    backgroundColor: "#fff",
     lineHeight: 22,
   },
   charCount: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     right: 14,
     fontSize: 11,
-    color: '#CCCCCC',
-    fontWeight: '500',
+    color: "#CCCCCC",
+    fontWeight: "500",
   },
   segmentedControl: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#EDECEA',
-    overflow: 'hidden',
+    borderColor: "#EDECEA",
+    overflow: "hidden",
   },
   segment: {
     flex: 1,
     paddingVertical: 11,
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   segmentActive: {
-    backgroundColor: '#131313',
+    backgroundColor: "#131313",
   },
   segmentText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#131313',
+    fontWeight: "700",
+    color: "#131313",
     letterSpacing: 0.1,
   },
   segmentTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    backgroundColor: '#FFF1F1',
+    backgroundColor: "#FFF1F1",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
   errorIcon: {
     fontSize: 13,
-    color: '#E51E1E',
+    color: "#E51E1E",
   },
   error: {
-    color: '#E51E1E',
+    color: "#E51E1E",
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     flex: 1,
   },
   submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 14,
     paddingVertical: 15,
     gap: 8,
   },
   submitActive: {
-    backgroundColor: '#131313',
+    backgroundColor: "#131313",
   },
   submitDisabled: {
-    backgroundColor: '#EDECEA',
+    backgroundColor: "#EDECEA",
   },
   submitText: {
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 15,
-    color: '#fff',
+    color: "#fff",
     letterSpacing: 0.1,
   },
-})
+});

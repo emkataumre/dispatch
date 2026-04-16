@@ -1,18 +1,18 @@
-import { Platform } from 'react-native'
-import * as Notifications from 'expo-notifications'
+import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 
-export const CHECKIN_CATEGORY = 'geofence-checkin'
-export const ACTION_CONFIRM = 'confirm-checkin'
-export const ACTION_DISMISS = 'dismiss-checkin'
+export const CHECKIN_CATEGORY = "geofence-checkin";
+export const ACTION_CONFIRM = "confirm-checkin";
+export const ACTION_DISMISS = "dismiss-checkin";
 
 export async function setupNotificationCategories(): Promise<void> {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('checkin', {
-      name: 'Check-in notifications',
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("checkin", {
+      name: "Check-in notifications",
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       enableVibrate: true,
-    })
+    });
   }
 
   await Notifications.setNotificationCategoryAsync(CHECKIN_CATEGORY, [
@@ -23,10 +23,10 @@ export async function setupNotificationCategories(): Promise<void> {
     },
     {
       identifier: ACTION_DISMISS,
-      buttonTitle: 'No',
+      buttonTitle: "No",
       options: { opensAppToForeground: false },
     },
-  ])
+  ]);
 }
 
 // Module-level side effect (intentional): create the Android notification
@@ -36,8 +36,8 @@ export async function setupNotificationCategories(): Promise<void> {
 // non-existent channel and silently failed. Fire-and-forget — errors are
 // logged but must not crash the module import chain.
 setupNotificationCategories().catch((err) => {
-  console.warn('[notifications] setupNotificationCategories failed at module scope:', err)
-})
+  console.warn("[notifications] setupNotificationCategories failed at module scope:", err);
+});
 
 // Module-level side effect (intentional): setNotificationHandler must be
 // registered early, before any notification arrives. Imported via index.js to
@@ -52,4 +52,4 @@ Notifications.setNotificationHandler({
     shouldPlaySound: false,
     shouldSetBadge: false,
   }),
-})
+});

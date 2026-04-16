@@ -1,17 +1,17 @@
-import { useState } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native'
-import { useUserSearch } from '@/hooks/useUserSearch'
-import { useFriendships } from '@/hooks/useFriendships'
-import { UserSearchResult } from '@/components/friends/UserSearchResult'
-import { FriendRow } from '@/components/friends/FriendRow'
-import { IncomingRequestsSection } from '@/components/friends/IncomingRequestsSection'
+import { useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { useUserSearch } from "@/hooks/useUserSearch";
+import { useFriendships } from "@/hooks/useFriendships";
+import { UserSearchResult } from "@/components/friends/UserSearchResult";
+import { FriendRow } from "@/components/friends/FriendRow";
+import { IncomingRequestsSection } from "@/components/friends/IncomingRequestsSection";
 
 export default function FriendsScreen() {
-  const [query, setQuery] = useState('')
-  const search = useUserSearch(query)
-  const friendships = useFriendships()
+  const [query, setQuery] = useState("");
+  const search = useUserSearch(query);
+  const friendships = useFriendships();
 
-  const isSearching = query.trim().length > 0
+  const isSearching = query.trim().length > 0;
 
   return (
     <View style={styles.container}>
@@ -74,46 +74,46 @@ export default function FriendsScreen() {
       {/* Search results */}
       {isSearching && (
         <>
-          {search.state === 'searching' && (
+          {search.state === "searching" && (
             <View style={styles.center}>
               <ActivityIndicator size="small" color="#131313" />
             </View>
           )}
 
-          {search.state === 'results' && search.results.length === 0 && (
+          {search.state === "results" && search.results.length === 0 && (
             <View style={styles.center}>
               <Text style={styles.hint}>No users found</Text>
             </View>
           )}
 
-          {search.state === 'results' && search.results.length > 0 && (
+          {search.state === "results" && search.results.length > 0 && (
             <FlatList
               data={search.results}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => {
-                const status = friendships.getStatusForUser(item.id)
-                const friendshipId = friendships.getFriendshipId(item.id)
+                const status = friendships.getStatusForUser(item.id);
+                const friendshipId = friendships.getFriendshipId(item.id);
                 return (
                   <UserSearchResult
                     user={item}
                     status={status}
                     onSendRequest={() => friendships.sendRequest(item.id)}
                     onCancelRequest={() => {
-                      if (!friendshipId) return Promise.resolve()
-                      return friendships.cancelRequest(friendshipId)
+                      if (!friendshipId) return Promise.resolve();
+                      return friendships.cancelRequest(friendshipId);
                     }}
                     onAcceptRequest={() => {
-                      if (!friendshipId) return Promise.resolve()
-                      return friendships.acceptRequest(friendshipId)
+                      if (!friendshipId) return Promise.resolve();
+                      return friendships.acceptRequest(friendshipId);
                     }}
                   />
-                )
+                );
               }}
               contentContainerStyle={styles.list}
             />
           )}
 
-          {search.state === 'error' && (
+          {search.state === "error" && (
             <View style={styles.center}>
               <Text style={styles.errorText}>{search.error}</Text>
             </View>
@@ -121,13 +121,13 @@ export default function FriendsScreen() {
         </>
       )}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   searchBarWrapper: {
     paddingHorizontal: 16,
@@ -136,26 +136,26 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     height: 44,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: "#f2f2f2",
     borderRadius: 12,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#131313',
+    color: "#131313",
   },
   center: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   hint: {
     fontSize: 14,
-    color: '#999',
+    color: "#999",
   },
   errorText: {
     fontSize: 14,
-    color: '#e53e3e',
+    color: "#e53e3e",
   },
   list: {
     paddingTop: 4,
   },
-})
+});

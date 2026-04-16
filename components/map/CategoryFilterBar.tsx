@@ -1,15 +1,15 @@
-import { ScrollView, Pressable, Text, View, StyleSheet } from 'react-native'
-import { POI_CATEGORIES, CATEGORY_LABELS, CATEGORY_COLORS, PoiCategory } from '@/lib/poiCategories'
+import { ScrollView, Pressable, Text, View, StyleSheet } from "react-native";
+import { POI_CATEGORIES, CATEGORY_LABELS, CATEGORY_COLORS, PoiCategory } from "@/lib/poiCategories";
 
 interface Props {
-  value: Record<PoiCategory, boolean>
-  onChange: (next: Record<PoiCategory, boolean>) => void
+  value: Record<PoiCategory, boolean>;
+  onChange: (next: Record<PoiCategory, boolean>) => void;
 }
 
 export function CategoryFilterBar({ value, onChange }: Props) {
   const toggle = (category: PoiCategory) => {
-    onChange({ ...value, [category]: !value[category] })
-  }
+    onChange({ ...value, [category]: !value[category] });
+  };
 
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
@@ -19,34 +19,32 @@ export function CategoryFilterBar({ value, onChange }: Props) {
         contentContainerStyle={styles.scrollContent}
       >
         {POI_CATEGORIES.map((cat) => {
-          const active = value[cat]
-          const color = CATEGORY_COLORS[cat]
+          const active = value[cat];
+          const color = CATEGORY_COLORS[cat];
           return (
             <Pressable
               key={cat}
               onPress={() => toggle(cat)}
               style={[
                 styles.pill,
-                active
-                  ? { backgroundColor: color, borderColor: color }
-                  : styles.pillInactive,
+                active ? { backgroundColor: color, borderColor: color } : styles.pillInactive,
               ]}
             >
-              <View style={[styles.dot, { backgroundColor: active ? '#fff' : color }]} />
+              <View style={[styles.dot, { backgroundColor: active ? "#fff" : color }]} />
               <Text style={[styles.label, active ? styles.labelActive : styles.labelInactive]}>
                 {CATEGORY_LABELS[cat]}
               </Text>
             </Pressable>
-          )
+          );
         })}
       </ScrollView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 24,
     left: 0,
     right: 0,
@@ -56,8 +54,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -65,8 +63,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   pillInactive: {
-    backgroundColor: '#fff',
-    borderColor: '#ccc',
+    backgroundColor: "#fff",
+    borderColor: "#ccc",
   },
   dot: {
     width: 8,
@@ -75,12 +73,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   labelActive: {
-    color: '#fff',
+    color: "#fff",
   },
   labelInactive: {
-    color: '#555',
+    color: "#555",
   },
-})
+});

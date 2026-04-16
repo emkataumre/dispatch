@@ -1,5 +1,5 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { supabase } from '@/lib/supabase'
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { supabase } from "@/lib/supabase";
 
 export default function VerifyEmailScreen() {
   return (
@@ -13,14 +13,20 @@ export default function VerifyEmailScreen() {
         <Text style={styles.linkText}>Use a different email</Text>
       </Pressable>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
   emoji: { fontSize: 48, marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 12 },
-  body: { fontSize: 16, color: '#666', textAlign: 'center', lineHeight: 24, marginBottom: 32 },
+  title: { fontSize: 24, fontWeight: "700", marginBottom: 12 },
+  body: { fontSize: 16, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },
   link: { padding: 12 },
-  linkText: { color: '#0066FF', fontSize: 16 },
-})
+  linkText: { color: "#0066FF", fontSize: 16 },
+});

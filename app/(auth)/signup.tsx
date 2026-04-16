@@ -48,9 +48,7 @@ export default function SignupScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Join Dispatch</Text>
-      <Text style={styles.subtitle}>
-        Use your university .edu email to sign up.
-      </Text>
+      <Text style={styles.subtitle}>Use your university .edu email to sign up.</Text>
 
       <TextInput
         style={styles.input}
@@ -81,9 +79,7 @@ export default function SignupScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={signUp} disabled={loading}>
-        <Text style={styles.buttonText}>
-          {loading ? "Creating account..." : "Create account"}
-        </Text>
+        <Text style={styles.buttonText}>{loading ? "Creating account..." : "Create account"}</Text>
       </Pressable>
 
       <Link href="/(auth)/login" style={styles.link}>

@@ -5,111 +5,124 @@
  * Uses react-test-renderer + React.act (no @testing-library/react-native needed).
  */
 
-import React from 'react'
-import { Text } from 'react-native'
-import { act, create, ReactTestInstance } from 'react-test-renderer'
+import React from "react";
+import { Text } from "react-native";
+import { act, create, ReactTestInstance } from "react-test-renderer";
 
 // ---------------------------------------------------------------------------
 // Mapbox mock — Camera wires setCamera to a stable spy via useImperativeHandle.
 // mockSetCamera is prefixed with "mock" so Jest hoisting allows it in the factory.
 // ---------------------------------------------------------------------------
-const mockSetCamera = jest.fn()
+const mockSetCamera = jest.fn();
 
-jest.mock('@rnmapbox/maps', () => {
-  const React = require('react')
+jest.mock("@rnmapbox/maps", () => {
+  const React = require("react");
   return {
     __esModule: true,
     default: {
       MapView: function MockMapView({ children }: { children: React.ReactNode }) {
-        return React.createElement(React.Fragment, null, children)
+        return React.createElement(React.Fragment, null, children);
       },
       Camera: React.forwardRef(function MockCamera(_: any, ref: any) {
-        React.useImperativeHandle(ref, () => ({ setCamera: mockSetCamera }))
-        return null
+        React.useImperativeHandle(ref, () => ({ setCamera: mockSetCamera }));
+        return null;
       }),
-      LocationPuck: function MockLocationPuck() { return null },
+      LocationPuck: function MockLocationPuck() {
+        return null;
+      },
       StyleURL: {
-        Light: 'mapbox://styles/mapbox/light-v10',
+        Light: "mapbox://styles/mapbox/light-v10",
       },
     },
-  }
-})
+  };
+});
 
-jest.mock('expo-location', () => ({
-  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
-  getBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'denied' })),
-  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+jest.mock("expo-location", () => ({
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
+  getBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: "denied" })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
   getCurrentPositionAsync: jest.fn(() =>
-    Promise.resolve({ coords: { latitude: 55.6761, longitude: 12.5683 } })
+    Promise.resolve({ coords: { latitude: 55.6761, longitude: 12.5683 } }),
   ),
   Accuracy: { High: 3, Low: 2 },
-}))
+}));
 
-jest.mock('expo-notifications', () => ({
-  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
-  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
-}))
+jest.mock("expo-notifications", () => ({
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
+}));
 
-jest.mock('@/lib/backgroundGeofences', () => ({
+jest.mock("@/lib/backgroundGeofences", () => ({
   registerGeofences: jest.fn(() => Promise.resolve()),
-}))
+}));
 
-jest.mock('@/lib/notifications', () => ({
+jest.mock("@/lib/notifications", () => ({
   setupNotificationCategories: jest.fn(() => Promise.resolve()),
-  CHECKIN_CATEGORY: 'geofence-checkin',
-}))
+  CHECKIN_CATEGORY: "geofence-checkin",
+}));
 
-jest.mock('@/components/BackgroundPermissionBanner', () => ({
+jest.mock("@/components/BackgroundPermissionBanner", () => ({
   BackgroundPermissionBanner: () => null,
-}))
+}));
 
 // ---------------------------------------------------------------------------
 // Hook mocks
 // ---------------------------------------------------------------------------
-const mockRefetchRatings = jest.fn()
+const mockRefetchRatings = jest.fn();
 
-jest.mock('@/hooks/usePois', () => ({
+jest.mock("@/hooks/usePois", () => ({
   usePois: jest.fn(() => ({ pois: [], error: null })),
-}))
+}));
 
-jest.mock('@/hooks/useAllPoiRatings', () => ({
+jest.mock("@/hooks/useAllPoiRatings", () => ({
   useAllPoiRatings: jest.fn(() => ({
     avgRatings: {},
     loading: false,
     error: null,
     refetch: mockRefetchRatings,
   })),
-}))
+}));
 
 // Fix 5: use real useState so setBroadcast/clearBroadcast actually update activePresence
-jest.mock('@/hooks/useActivePresence', () => {
-  const { useState } = require('react')
+jest.mock("@/hooks/useActivePresence", () => {
+  const { useState } = require("react");
   return {
     useActivePresence: () => {
-      const [activePresence, setActivePresence] = useState(null)
+      const [activePresence, setActivePresence] = useState(null);
       return {
         activePresence,
         loading: false,
         error: null,
         setBroadcast: setActivePresence,
         clearBroadcast: () => setActivePresence(null),
-      }
+      };
     },
-  }
-})
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Child component mocks — render null so only MapScreen's own nodes are visible
 // ---------------------------------------------------------------------------
-jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }))
-jest.mock('@/hooks/useFriendships', () => ({
-  useFriendships: jest.fn(() => ({ friends: [], incomingRequests: [], outgoingRequestMap: new Map(), sendRequest: jest.fn(), acceptRequest: jest.fn(), declineRequest: jest.fn(), cancelRequest: jest.fn(), unfriend: jest.fn(), getStatusForUser: jest.fn(() => 'none'), getFriendshipId: jest.fn(() => null) })),
-}))
-jest.mock('@/hooks/useLivePresences', () => ({
+jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("@/hooks/useFriendships", () => ({
+  useFriendships: jest.fn(() => ({
+    friends: [],
+    incomingRequests: [],
+    outgoingRequestMap: new Map(),
+    sendRequest: jest.fn(),
+    acceptRequest: jest.fn(),
+    declineRequest: jest.fn(),
+    cancelRequest: jest.fn(),
+    unfriend: jest.fn(),
+    getStatusForUser: jest.fn(() => "none"),
+    getFriendshipId: jest.fn(() => null),
+  })),
+}));
+jest.mock("@/hooks/useLivePresences", () => ({
   useLivePresences: jest.fn(() => ({ presences: [], loading: false, error: null })),
-}))
+}));
 
-jest.mock('@/hooks/usePresenceJoins', () => ({
+jest.mock("@/hooks/usePresenceJoins", () => ({
   usePresenceJoins: jest.fn(() => ({
     joins: [],
     loading: false,
@@ -118,283 +131,60 @@ jest.mock('@/hooks/usePresenceJoins', () => ({
     cancel: jest.fn(),
     getJoinForPresence: jest.fn(() => undefined),
   })),
-}))
-jest.mock('@/components/map/PoiLayer', () => ({ PoiLayer: (props: any) => null }))
-jest.mock('@/components/map/PresenceLayer', () => ({ PresenceLayer: (props: any) => null }))
-jest.mock('@/components/map/CategoryFilterBar', () => ({ CategoryFilterBar: () => null }))
-jest.mock('@/components/map/PoiBottomSheet', () => ({ PoiBottomSheet: (props: any) => null }))
-jest.mock('@/components/map/PoiListView', () => ({ PoiListView: (props: any) => null }))
+}));
+jest.mock("@/components/map/PoiLayer", () => ({ PoiLayer: (props: any) => null }));
+jest.mock("@/components/map/PresenceLayer", () => ({ PresenceLayer: (props: any) => null }));
+jest.mock("@/components/map/CategoryFilterBar", () => ({ CategoryFilterBar: () => null }));
+jest.mock("@/components/map/PoiBottomSheet", () => ({ PoiBottomSheet: (props: any) => null }));
+jest.mock("@/components/map/PoiListView", () => ({ PoiListView: (props: any) => null }));
 
 // ---------------------------------------------------------------------------
 // Imports resolve to mocked versions — used with findByType
 // ---------------------------------------------------------------------------
-import Mapbox from '@rnmapbox/maps'
-import { usePois } from '@/hooks/usePois'
-import { useAllPoiRatings } from '@/hooks/useAllPoiRatings'
-import { useFriendships } from '@/hooks/useFriendships'
-import { useLivePresences } from '@/hooks/useLivePresences'
-import { usePresenceJoins } from '@/hooks/usePresenceJoins'
-import { PoiLayer } from '@/components/map/PoiLayer'
-import { PresenceLayer } from '@/components/map/PresenceLayer'
-import { PoiBottomSheet } from '@/components/map/PoiBottomSheet'
-import { PoiListView } from '@/components/map/PoiListView'
-import { Tables } from '@/types/supabase'
-import MapScreen from '../index'
+import Mapbox from "@rnmapbox/maps";
+import { usePois } from "@/hooks/usePois";
+import { useAllPoiRatings } from "@/hooks/useAllPoiRatings";
+import { useFriendships } from "@/hooks/useFriendships";
+import { useLivePresences } from "@/hooks/useLivePresences";
+import { usePresenceJoins } from "@/hooks/usePresenceJoins";
+import { PoiLayer } from "@/components/map/PoiLayer";
+import { PresenceLayer } from "@/components/map/PresenceLayer";
+import { PoiBottomSheet } from "@/components/map/PoiBottomSheet";
+import { PoiListView } from "@/components/map/PoiListView";
+import { Tables } from "@/types/supabase";
+import MapScreen from "../index";
 
-type Poi = Tables<'pois'>
+type Poi = Tables<"pois">;
 
 function makePoi(overrides: Partial<Poi> = {}): Poi {
   return {
-    id: 'poi-1',
-    name: 'Test Cafe',
-    category: 'food_drink',
+    id: "poi-1",
+    name: "Test Cafe",
+    category: "food_drink",
     lat: 55.6761,
     lng: 12.5683,
     description: null,
-    created_by: 'user-1',
-    created_at: '2025-01-01T00:00:00Z',
+    created_by: "user-1",
+    created_at: "2025-01-01T00:00:00Z",
     ...overrides,
-  } as Poi
+  } as Poi;
 }
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('MapScreen', () => {
+describe("MapScreen", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    ;(usePois as jest.Mock).mockReturnValue({ pois: [], error: null })
-    ;(useAllPoiRatings as jest.Mock).mockReturnValue({
+    jest.clearAllMocks();
+    (usePois as jest.Mock).mockReturnValue({ pois: [], error: null });
+    (useAllPoiRatings as jest.Mock).mockReturnValue({
       avgRatings: {},
       loading: false,
       error: null,
       refetch: mockRefetchRatings,
-    })
-    ;(useFriendships as jest.Mock).mockReturnValue({ friends: [], incomingRequests: [], outgoingRequestMap: new Map(), sendRequest: jest.fn(), acceptRequest: jest.fn(), declineRequest: jest.fn(), cancelRequest: jest.fn(), unfriend: jest.fn(), getStatusForUser: jest.fn(() => 'none'), getFriendshipId: jest.fn(() => null), error: null })
-    ;(useLivePresences as jest.Mock).mockReturnValue({ presences: [], loading: false, error: null })
-  })
-
-  it('Camera initializes centered on Copenhagen at zoom 13', async () => {
-    let root: ReturnType<typeof create>
-
-    await act(async () => { root = create(<MapScreen />) })
-
-    const camera = root!.root.findByType(Mapbox.Camera)
-    expect(camera.props.defaultSettings.centerCoordinate).toEqual([12.5683, 55.6761])
-    expect(camera.props.defaultSettings.zoomLevel).toBe(13)
-  })
-
-  it('handleSheetClose clears selected POI and calls refetchRatings', async () => {
-    const poi = makePoi()
-    let root: ReturnType<typeof create>
-
-    await act(async () => { root = create(<MapScreen />) })
-
-    // Open bottom sheet by tapping a map POI
-    act(() => { root!.root.findByType(PoiLayer).props.onPoiPress(poi) })
-    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi)
-
-    // Close the sheet
-    act(() => { root!.root.findByType(PoiBottomSheet).props.onClose() })
-
-    expect(root!.root.findByType(PoiBottomSheet).props.poi).toBeNull()
-    expect(mockRefetchRatings).toHaveBeenCalledTimes(1)
-  })
-
-  it('handleListRowPress switches to map, opens bottom sheet, and flies camera to POI', async () => {
-    const poi = makePoi({ id: 'poi-fly', lat: 55.7, lng: 12.6 })
-    let root: ReturnType<typeof create>
-
-    await act(async () => { root = create(<MapScreen />) })
-
-    // Switch to list mode via the toggle button
-    const toggle = root!.root.findAll(
-      (n: ReactTestInstance) => n.props.testID === 'view-mode-toggle' && typeof n.props.onPress === 'function'
-    )[0]
-    act(() => { toggle.props.onPress() })
-    expect(root!.root.findAllByType(PoiListView).length).toBeGreaterThan(0)
-
-    // Press a list row
-    act(() => { root!.root.findByType(PoiListView).props.onPoiPress(poi) })
-
-    // Map mode restored — list view is gone
-    expect(root!.root.findAllByType(PoiListView).length).toBe(0)
-    // Bottom sheet receives the pressed POI
-    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi)
-    // Camera flies to the POI's coordinates
-    expect(mockSetCamera).toHaveBeenCalledWith({
-      centerCoordinate: [poi.lng, poi.lat],
-      zoomLevel: 15,
-      animationDuration: 800,
-    })
-  })
-
-  it('error banner shows POI connection message when usePois errors', async () => {
-    ;(usePois as jest.Mock).mockReturnValue({ pois: [], error: 'network error' })
-    let root: ReturnType<typeof create>
-
-    await act(async () => { root = create(<MapScreen />) })
-
-    const hasMessage = root!.root
-      .findAllByType(Text)
-      .some((n: ReactTestInstance) =>
-        String(n.props.children).includes("Couldn't load places")
-      )
-    expect(hasMessage).toBe(true)
-  })
-
-  it('error banner shows join status message when only usePresenceJoins errors', async () => {
-    ;(usePresenceJoins as jest.Mock).mockReturnValue({
-      joins: [],
-      loading: false,
-      error: 'joins error',
-      join: jest.fn(),
-      cancel: jest.fn(),
-      getJoinForPresence: jest.fn(() => undefined),
-    })
-    let root: ReturnType<typeof create>
-
-    await act(async () => { root = create(<MapScreen />) })
-
-    const hasMessage = root!.root
-      .findAllByType(Text)
-      .some((n: ReactTestInstance) =>
-        String(n.props.children).includes('Could not load join status')
-      )
-    expect(hasMessage).toBe(true)
-  })
-
-  it('passes join, cancel, and getJoinForPresence from usePresenceJoins to PoiBottomSheet', async () => {
-    const mockJoin = jest.fn()
-    const mockCancel = jest.fn()
-    const mockGetJoin = jest.fn(() => undefined)
-    ;(usePresenceJoins as jest.Mock).mockReturnValue({
-      joins: [],
-      loading: false,
-      error: null,
-      join: mockJoin,
-      cancel: mockCancel,
-      getJoinForPresence: mockGetJoin,
-    })
-
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    const sheet = root!.root.findByType(PoiBottomSheet)
-    expect(sheet.props.onJoinPresence).toBe(mockJoin)
-    expect(sheet.props.onCancelJoin).toBe(mockCancel)
-    expect(sheet.props.getJoinForPresence).toBe(mockGetJoin)
-  })
-
-  it('error banner shows ratings message when only useAllPoiRatings errors', async () => {
-    ;(useAllPoiRatings as jest.Mock).mockReturnValue({
-      avgRatings: {},
-      loading: false,
-      error: 'ratings error',
-      refetch: mockRefetchRatings,
-    })
-    let root: ReturnType<typeof create>
-
-    await act(async () => { root = create(<MapScreen />) })
-
-    const hasMessage = root!.root
-      .findAllByType(Text)
-      .some((n: ReactTestInstance) =>
-        String(n.props.children).includes('Ratings unavailable')
-      )
-    expect(hasMessage).toBe(true)
-  })
-
-  it('return-to-location button calls setCamera with user coordinates', async () => {
-    // render with async act so locationGranted flushes to true
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    const btn = root!.root.findAll(
-      (n: ReactTestInstance) => n.props.testID === 'return-to-location' && typeof n.props.onPress === 'function'
-    )[0]
-    expect(btn).toBeDefined()
-
-    await act(async () => { btn.props.onPress() })
-
-    expect(mockSetCamera).toHaveBeenCalledWith({
-      centerCoordinate: [12.5683, 55.6761],
-      zoomLevel: 15,
-      animationDuration: 800,
-    })
-  })
-
-  it('hides LocationPuck and return-to-location button when permission is denied', async () => {
-    const Location = require('expo-location')
-    Location.requestForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'denied' })
-
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(0)
-    const btns = root!.root.findAll(
-      (n: ReactTestInstance) => n.props.testID === 'return-to-location'
-    )
-    expect(btns.length).toBe(0)
-  })
-
-  it('hides return-to-location button in list mode', async () => {
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    // switch to list mode
-    const toggle = root!.root.findAll(
-      (n: ReactTestInstance) => n.props.testID === 'view-mode-toggle' && typeof n.props.onPress === 'function'
-    )[0]
-    act(() => { toggle.props.onPress() })
-
-    const btns = root!.root.findAll(
-      (n: ReactTestInstance) => n.props.testID === 'return-to-location'
-    )
-    expect(btns.length).toBe(0)
-  })
-
-  it('renders LocationPuck when location permission is granted', async () => {
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(1)
-  })
-
-  it('passes unfiltered pois and presences from useLivePresences to PresenceLayer', async () => {
-    const allPois = [
-      makePoi({ id: 'poi-1', category: 'food_drink' }),
-      makePoi({ id: 'poi-2', category: 'nightlife' }),
-    ]
-    const mockPresences = [{ id: 'p-1', userId: 'u-2', poiId: 'poi-1', displayName: 'Jane', avatarUrl: null, message: null }]
-    ;(usePois as jest.Mock).mockReturnValue({ pois: allPois, error: null })
-    ;(useLivePresences as jest.Mock).mockReturnValue({ presences: mockPresences, loading: false, error: null })
-
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    const layer = root!.root.findByType(PresenceLayer)
-    // receives ALL pois, not filtered subset
-    expect(layer.props.pois).toEqual(allPois)
-    expect(layer.props.presences).toEqual(mockPresences)
-  })
-
-  it('passes handlePoiPress to PresenceLayer as onPoiPress and it opens the bottom sheet', async () => {
-    const poi = makePoi()
-    ;(usePois as jest.Mock).mockReturnValue({ pois: [poi], error: null })
-
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
-
-    act(() => { root!.root.findByType(PresenceLayer).props.onPoiPress(poi) })
-
-    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi)
-  })
-
-  // Fix 5: verify setBroadcast/clearBroadcast wiring through PoiBottomSheet props
-  it('error banner shows friend list message when useFriendships errors', async () => {
-    ;(useFriendships as jest.Mock).mockReturnValue({
+    });
+    (useFriendships as jest.Mock).mockReturnValue({
       friends: [],
       incomingRequests: [],
       outgoingRequestMap: new Map(),
@@ -403,45 +193,338 @@ describe('MapScreen', () => {
       declineRequest: jest.fn(),
       cancelRequest: jest.fn(),
       unfriend: jest.fn(),
-      getStatusForUser: jest.fn(() => 'none'),
+      getStatusForUser: jest.fn(() => "none"),
       getFriendshipId: jest.fn(() => null),
-      error: 'network error',
-    })
-    let root: ReturnType<typeof create>
+      error: null,
+    });
+    (useLivePresences as jest.Mock).mockReturnValue({ presences: [], loading: false, error: null });
+  });
 
-    await act(async () => { root = create(<MapScreen />) })
+  it("Camera initializes centered on Copenhagen at zoom 13", async () => {
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const camera = root!.root.findByType(Mapbox.Camera);
+    expect(camera.props.defaultSettings.centerCoordinate).toEqual([12.5683, 55.6761]);
+    expect(camera.props.defaultSettings.zoomLevel).toBe(13);
+  });
+
+  it("handleSheetClose clears selected POI and calls refetchRatings", async () => {
+    const poi = makePoi();
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    // Open bottom sheet by tapping a map POI
+    act(() => {
+      root!.root.findByType(PoiLayer).props.onPoiPress(poi);
+    });
+    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi);
+
+    // Close the sheet
+    act(() => {
+      root!.root.findByType(PoiBottomSheet).props.onClose();
+    });
+
+    expect(root!.root.findByType(PoiBottomSheet).props.poi).toBeNull();
+    expect(mockRefetchRatings).toHaveBeenCalledTimes(1);
+  });
+
+  it("handleListRowPress switches to map, opens bottom sheet, and flies camera to POI", async () => {
+    const poi = makePoi({ id: "poi-fly", lat: 55.7, lng: 12.6 });
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    // Switch to list mode via the toggle button
+    const toggle = root!.root.findAll(
+      (n: ReactTestInstance) =>
+        n.props.testID === "view-mode-toggle" && typeof n.props.onPress === "function",
+    )[0];
+    act(() => {
+      toggle.props.onPress();
+    });
+    expect(root!.root.findAllByType(PoiListView).length).toBeGreaterThan(0);
+
+    // Press a list row
+    act(() => {
+      root!.root.findByType(PoiListView).props.onPoiPress(poi);
+    });
+
+    // Map mode restored — list view is gone
+    expect(root!.root.findAllByType(PoiListView).length).toBe(0);
+    // Bottom sheet receives the pressed POI
+    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi);
+    // Camera flies to the POI's coordinates
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [poi.lng, poi.lat],
+      zoomLevel: 15,
+      animationDuration: 800,
+    });
+  });
+
+  it("error banner shows POI connection message when usePois errors", async () => {
+    (usePois as jest.Mock).mockReturnValue({ pois: [], error: "network error" });
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const hasMessage = root!.root
+      .findAllByType(Text)
+      .some((n: ReactTestInstance) => String(n.props.children).includes("Couldn't load places"));
+    expect(hasMessage).toBe(true);
+  });
+
+  it("error banner shows join status message when only usePresenceJoins errors", async () => {
+    (usePresenceJoins as jest.Mock).mockReturnValue({
+      joins: [],
+      loading: false,
+      error: "joins error",
+      join: jest.fn(),
+      cancel: jest.fn(),
+      getJoinForPresence: jest.fn(() => undefined),
+    });
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
 
     const hasMessage = root!.root
       .findAllByType(Text)
       .some((n: ReactTestInstance) =>
-        String(n.props.children).includes('Friend list unavailable')
-      )
-    expect(hasMessage).toBe(true)
-  })
+        String(n.props.children).includes("Could not load join status"),
+      );
+    expect(hasMessage).toBe(true);
+  });
 
-  it('passes setBroadcast and clearBroadcast to PoiBottomSheet and they update activePresence', async () => {
+  it("passes join, cancel, and getJoinForPresence from usePresenceJoins to PoiBottomSheet", async () => {
+    const mockJoin = jest.fn();
+    const mockCancel = jest.fn();
+    const mockGetJoin = jest.fn(() => undefined);
+    (usePresenceJoins as jest.Mock).mockReturnValue({
+      joins: [],
+      loading: false,
+      error: null,
+      join: mockJoin,
+      cancel: mockCancel,
+      getJoinForPresence: mockGetJoin,
+    });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const sheet = root!.root.findByType(PoiBottomSheet);
+    expect(sheet.props.onJoinPresence).toBe(mockJoin);
+    expect(sheet.props.onCancelJoin).toBe(mockCancel);
+    expect(sheet.props.getJoinForPresence).toBe(mockGetJoin);
+  });
+
+  it("error banner shows ratings message when only useAllPoiRatings errors", async () => {
+    (useAllPoiRatings as jest.Mock).mockReturnValue({
+      avgRatings: {},
+      loading: false,
+      error: "ratings error",
+      refetch: mockRefetchRatings,
+    });
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const hasMessage = root!.root
+      .findAllByType(Text)
+      .some((n: ReactTestInstance) => String(n.props.children).includes("Ratings unavailable"));
+    expect(hasMessage).toBe(true);
+  });
+
+  it("return-to-location button calls setCamera with user coordinates", async () => {
+    // render with async act so locationGranted flushes to true
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const btn = root!.root.findAll(
+      (n: ReactTestInstance) =>
+        n.props.testID === "return-to-location" && typeof n.props.onPress === "function",
+    )[0];
+    expect(btn).toBeDefined();
+
+    await act(async () => {
+      btn.props.onPress();
+    });
+
+    expect(mockSetCamera).toHaveBeenCalledWith({
+      centerCoordinate: [12.5683, 55.6761],
+      zoomLevel: 15,
+      animationDuration: 800,
+    });
+  });
+
+  it("hides LocationPuck and return-to-location button when permission is denied", async () => {
+    const Location = require("expo-location");
+    Location.requestForegroundPermissionsAsync.mockResolvedValueOnce({ status: "denied" });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(0);
+    const btns = root!.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === "return-to-location",
+    );
+    expect(btns.length).toBe(0);
+  });
+
+  it("hides return-to-location button in list mode", async () => {
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    // switch to list mode
+    const toggle = root!.root.findAll(
+      (n: ReactTestInstance) =>
+        n.props.testID === "view-mode-toggle" && typeof n.props.onPress === "function",
+    )[0];
+    act(() => {
+      toggle.props.onPress();
+    });
+
+    const btns = root!.root.findAll(
+      (n: ReactTestInstance) => n.props.testID === "return-to-location",
+    );
+    expect(btns.length).toBe(0);
+  });
+
+  it("renders LocationPuck when location permission is granted", async () => {
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    expect(root!.root.findAllByType(Mapbox.LocationPuck).length).toBe(1);
+  });
+
+  it("passes unfiltered pois and presences from useLivePresences to PresenceLayer", async () => {
+    const allPois = [
+      makePoi({ id: "poi-1", category: "food_drink" }),
+      makePoi({ id: "poi-2", category: "nightlife" }),
+    ];
+    const mockPresences = [
+      {
+        id: "p-1",
+        userId: "u-2",
+        poiId: "poi-1",
+        displayName: "Jane",
+        avatarUrl: null,
+        message: null,
+      },
+    ];
+    (usePois as jest.Mock).mockReturnValue({ pois: allPois, error: null });
+    (useLivePresences as jest.Mock).mockReturnValue({
+      presences: mockPresences,
+      loading: false,
+      error: null,
+    });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const layer = root!.root.findByType(PresenceLayer);
+    // receives ALL pois, not filtered subset
+    expect(layer.props.pois).toEqual(allPois);
+    expect(layer.props.presences).toEqual(mockPresences);
+  });
+
+  it("passes handlePoiPress to PresenceLayer as onPoiPress and it opens the bottom sheet", async () => {
+    const poi = makePoi();
+    (usePois as jest.Mock).mockReturnValue({ pois: [poi], error: null });
+
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    act(() => {
+      root!.root.findByType(PresenceLayer).props.onPoiPress(poi);
+    });
+
+    expect(root!.root.findByType(PoiBottomSheet).props.poi).toEqual(poi);
+  });
+
+  // Fix 5: verify setBroadcast/clearBroadcast wiring through PoiBottomSheet props
+  it("error banner shows friend list message when useFriendships errors", async () => {
+    (useFriendships as jest.Mock).mockReturnValue({
+      friends: [],
+      incomingRequests: [],
+      outgoingRequestMap: new Map(),
+      sendRequest: jest.fn(),
+      acceptRequest: jest.fn(),
+      declineRequest: jest.fn(),
+      cancelRequest: jest.fn(),
+      unfriend: jest.fn(),
+      getStatusForUser: jest.fn(() => "none"),
+      getFriendshipId: jest.fn(() => null),
+      error: "network error",
+    });
+    let root: ReturnType<typeof create>;
+
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
+
+    const hasMessage = root!.root
+      .findAllByType(Text)
+      .some((n: ReactTestInstance) => String(n.props.children).includes("Friend list unavailable"));
+    expect(hasMessage).toBe(true);
+  });
+
+  it("passes setBroadcast and clearBroadcast to PoiBottomSheet and they update activePresence", async () => {
     const mockPresence = {
-      id: 'presence-1',
-      poi_id: 'poi-1',
-      message: 'here now',
-      visible_to: 'friends' as const,
-    }
+      id: "presence-1",
+      poi_id: "poi-1",
+      message: "here now",
+      visible_to: "friends" as const,
+    };
 
-    let root: ReturnType<typeof create>
-    await act(async () => { root = create(<MapScreen />) })
+    let root: ReturnType<typeof create>;
+    await act(async () => {
+      root = create(<MapScreen />);
+    });
 
-    const sheet = root!.root.findByType(PoiBottomSheet)
+    const sheet = root!.root.findByType(PoiBottomSheet);
 
     // onBroadcast and onDismissBroadcast props must be functions
-    expect(typeof sheet.props.onBroadcast).toBe('function')
-    expect(typeof sheet.props.onDismissBroadcast).toBe('function')
+    expect(typeof sheet.props.onBroadcast).toBe("function");
+    expect(typeof sheet.props.onDismissBroadcast).toBe("function");
 
     // Calling onBroadcast sets activePresence on the sheet
-    act(() => { sheet.props.onBroadcast(mockPresence) })
-    expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toEqual(mockPresence)
+    act(() => {
+      sheet.props.onBroadcast(mockPresence);
+    });
+    expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toEqual(mockPresence);
 
     // Calling onDismissBroadcast clears it
-    act(() => { sheet.props.onDismissBroadcast() })
-    expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toBeNull()
-  })
-})
+    act(() => {
+      sheet.props.onDismissBroadcast();
+    });
+    expect(root!.root.findByType(PoiBottomSheet).props.activePresence).toBeNull();
+  });
+});

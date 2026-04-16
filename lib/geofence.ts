@@ -6,4 +6,4 @@
 //
 // This namespace must never change — altering it would invalidate all
 // existing POI UUIDs and break geofence re-registration.
-export const DISPATCH_GEOFENCE_NS = '9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d'
+export const DISPATCH_GEOFENCE_NS = "9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d";
