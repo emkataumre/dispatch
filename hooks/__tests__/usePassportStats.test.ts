@@ -1,12 +1,12 @@
 /**
  * Tests for usePassportStats hook.
  *
- * Two Supabase queries under test:
+ * Two Supabase operations under test:
  *   1. profiles → select(semester_id) → eq(id) → single()
- *   2. check_ins → select(poi_id, checked_in_at, pois(name)) → eq(user_id) → eq(semester_id) → order()
+ *   2. rpc("get_passport_stats", { p_semester_id }) → single()
  *
- * The mock branches on the table name (same pattern as useLivePresences.test.ts).
- * Variables referenced inside jest.mock() factories must be mock-prefixed.
+ * Variables referenced inside jest.mock() factories must be mock-prefixed
+ * (Jest hoisting requirement).
  *
  * IMPORTANT: Always use result.current (not destructured `current`) when asserting
  * values that change after async state updates. Destructuring captures a stale
@@ -21,7 +21,7 @@ import { act, create } from "react-test-renderer";
 // Mock leaf fns
 // ---------------------------------------------------------------------------
 const mockSingleFn = jest.fn(); // profiles query terminal
-const mockOrderFn = jest.fn(); // check_ins query terminal
+const mockRpcSingleFn = jest.fn(); // get_passport_stats RPC terminal
 const mockUseAuth = jest.fn();
 
 // ---------------------------------------------------------------------------
@@ -37,17 +37,9 @@ jest.mock("@/lib/supabase", () => ({
           })),
         };
       }
-      // check_ins
-      return {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              order: mockOrderFn,
-            })),
-          })),
-        })),
-      };
+      throw new Error(`Unexpected table in mock: ${table}`);
     }),
+    rpc: jest.fn(() => ({ single: mockRpcSingleFn })),
   },
 }));
 
@@ -89,9 +81,9 @@ function renderHook<T>(useHook: () => T): HookResult<T> {
 
 async function flush() {
   // setImmediate fires after all pending microtasks drain — needed because the hook
-  // has two sequential awaits (profile query → check_ins query). A single
-  // Promise.resolve() tick only resolves the first; setImmediate lets the full
-  // microtask queue empty before act processes state updates.
+  // has two sequential awaits (profile query → RPC). A single Promise.resolve() tick
+  // only resolves the first; setImmediate lets the full microtask queue empty before
+  // act processes state updates.
   await act(async () => {
     await new Promise<void>((resolve) => setImmediate(resolve));
   });
@@ -103,11 +95,20 @@ async function flush() {
 const SEMESTER_ID = "sem-2026";
 const USER_ID = "user-1";
 
-function makeCheckIn(poiId: string, poiName: string, checkedInAt: string) {
+function makeRpcRow(
+  overrides?: Partial<{
+    total_check_ins: number;
+    unique_pois: number;
+    most_visited_name: string | null;
+    most_visited_count: number | null;
+  }>,
+) {
   return {
-    poi_id: poiId,
-    checked_in_at: checkedInAt,
-    pois: { name: poiName },
+    total_check_ins: 0,
+    unique_pois: 0,
+    most_visited_name: null,
+    most_visited_count: null,
+    ...overrides,
   };
 }
 
@@ -120,9 +121,9 @@ beforeEach(() => {
   mockSingleFn.mockResolvedValue({ data: { semester_id: SEMESTER_ID }, error: null });
 });
 
-describe("usePassportStats — authenticated user with active semester", () => {
-  it("returns zeros when there are no check-ins", async () => {
-    mockOrderFn.mockResolvedValue({ data: [], error: null });
+describe("usePassportStats — RPC response mapping", () => {
+  it("returns zeros when RPC returns zero stats", async () => {
+    mockRpcSingleFn.mockResolvedValue({ data: makeRpcRow(), error: null });
 
     const result = renderHook(() => usePassportStats());
     await flush();
@@ -133,89 +134,57 @@ describe("usePassportStats — authenticated user with active semester", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("counts total check-ins correctly", async () => {
-    mockOrderFn.mockResolvedValue({
-      data: [
-        makeCheckIn("poi-1", "Paludan", "2026-03-10T12:00:00Z"),
-        makeCheckIn("poi-1", "Paludan", "2026-03-11T12:00:00Z"),
-        makeCheckIn("poi-2", "La Banchina", "2026-03-12T12:00:00Z"),
-      ],
+  it("maps total_check_ins and unique_pois from RPC row", async () => {
+    mockRpcSingleFn.mockResolvedValue({
+      data: makeRpcRow({ total_check_ins: 7, unique_pois: 4 }),
       error: null,
     });
 
     const result = renderHook(() => usePassportStats());
     await flush();
 
-    expect(result.current.totalCheckIns).toBe(3);
+    expect(result.current.totalCheckIns).toBe(7);
+    expect(result.current.uniquePois).toBe(4);
   });
 
-  it("counts unique POIs correctly", async () => {
-    mockOrderFn.mockResolvedValue({
-      data: [
-        makeCheckIn("poi-1", "Paludan", "2026-03-10T12:00:00Z"),
-        makeCheckIn("poi-1", "Paludan", "2026-03-11T12:00:00Z"),
-        makeCheckIn("poi-2", "La Banchina", "2026-03-12T12:00:00Z"),
-        makeCheckIn("poi-3", "Gasoline Grill", "2026-03-13T12:00:00Z"),
-      ],
+  it("maps most_visited_name + count to mostVisited when present", async () => {
+    mockRpcSingleFn.mockResolvedValue({
+      data: makeRpcRow({ most_visited_name: "Paludan", most_visited_count: 3 }),
       error: null,
     });
 
     const result = renderHook(() => usePassportStats());
     await flush();
 
-    expect(result.current.uniquePois).toBe(3);
+    expect(result.current.mostVisited).toEqual({ name: "Paludan", count: 3 });
   });
 
-  it("returns the POI with the most visits as mostVisited", async () => {
-    mockOrderFn.mockResolvedValue({
-      data: [
-        makeCheckIn("poi-1", "Paludan", "2026-03-13T12:00:00Z"),
-        makeCheckIn("poi-2", "La Banchina", "2026-03-12T12:00:00Z"),
-        makeCheckIn("poi-2", "La Banchina", "2026-03-11T12:00:00Z"),
-        makeCheckIn("poi-1", "Paludan", "2026-03-10T12:00:00Z"),
-        makeCheckIn("poi-2", "La Banchina", "2026-03-09T12:00:00Z"),
-      ],
+  it("sets mostVisited null when most_visited_name is null", async () => {
+    mockRpcSingleFn.mockResolvedValue({
+      data: makeRpcRow({ total_check_ins: 5, most_visited_name: null }),
       error: null,
     });
 
     const result = renderHook(() => usePassportStats());
     await flush();
 
-    expect(result.current.mostVisited).toEqual({ name: "La Banchina", count: 3 });
+    expect(result.current.mostVisited).toBeNull();
   });
 
-  it("tiebreaks by most recent check-in when two POIs share top count", async () => {
-    // poi-1 and poi-2 both have 2 visits; poi-1's most recent is later → wins.
-    mockOrderFn.mockResolvedValue({
-      data: [
-        makeCheckIn("poi-1", "Paludan", "2026-03-15T12:00:00Z"), // most recent overall
-        makeCheckIn("poi-2", "La Banchina", "2026-03-14T12:00:00Z"),
-        makeCheckIn("poi-1", "Paludan", "2026-03-10T12:00:00Z"),
-        makeCheckIn("poi-2", "La Banchina", "2026-03-09T12:00:00Z"),
-      ],
-      error: null,
-    });
+  it("sets error state when RPC fails", async () => {
+    mockRpcSingleFn.mockResolvedValue({ data: null, error: { message: "rpc error" } });
 
     const result = renderHook(() => usePassportStats());
     await flush();
 
-    expect(result.current.mostVisited?.name).toBe("Paludan");
-    expect(result.current.mostVisited?.count).toBe(2);
-  });
-
-  it("sets error state when check_ins query fails", async () => {
-    mockOrderFn.mockResolvedValue({ data: null, error: { message: "network error" } });
-
-    const result = renderHook(() => usePassportStats());
-    await flush();
-
-    expect(result.current.error).toBe("network error");
+    expect(result.current.error).toBe("rpc error");
     expect(result.current.totalCheckIns).toBe(0);
+    expect(result.current.isLoading).toBe(false);
   });
 });
 
 describe("usePassportStats — edge cases", () => {
-  it("returns zeros when profile has no active semester (semester_id null)", async () => {
+  it("returns zeros and skips RPC when profile has no active semester", async () => {
     mockSingleFn.mockResolvedValue({ data: { semester_id: null }, error: null });
 
     const result = renderHook(() => usePassportStats());
@@ -224,8 +193,8 @@ describe("usePassportStats — edge cases", () => {
     expect(result.current.totalCheckIns).toBe(0);
     expect(result.current.uniquePois).toBe(0);
     expect(result.current.mostVisited).toBeNull();
-    // check_ins query must NOT have been called
-    expect(mockOrderFn).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(mockRpcSingleFn).not.toHaveBeenCalled();
   });
 
   it("returns zeros and no error when user is not authenticated", async () => {
@@ -241,13 +210,14 @@ describe("usePassportStats — edge cases", () => {
     expect(mockSingleFn).not.toHaveBeenCalled();
   });
 
-  it("sets error state when profiles query fails", async () => {
+  it("sets error state and skips RPC when profiles query fails", async () => {
     mockSingleFn.mockResolvedValue({ data: null, error: { message: "profile fetch failed" } });
 
     const result = renderHook(() => usePassportStats());
     await flush();
 
     expect(result.current.error).toBe("profile fetch failed");
-    expect(mockOrderFn).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(mockRpcSingleFn).not.toHaveBeenCalled();
   });
 });

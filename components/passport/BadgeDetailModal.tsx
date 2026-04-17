@@ -16,6 +16,7 @@ export function BadgeDetailModal({ badge, unlocked = false, onClose }: Props) {
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}
+      testID="badge-modal"
     >
       <Pressable style={styles.backdrop} onPress={onClose} testID="badge-modal-backdrop">
         {/* Inner Pressable prevents tap-through closing when tapping the card itself */}
