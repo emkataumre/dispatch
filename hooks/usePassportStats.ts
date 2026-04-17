@@ -2,16 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
-// Local RPC return type — update types/supabase.ts once the get_passport_stats
-// migration is reflected by `supabase gen types`. Until then this keeps TS happy
-// without widening to `any`.
-type GetPassportStatsRow = {
-  total_check_ins: number;
-  unique_pois: number;
-  most_visited_name: string | null;
-  most_visited_count: number | null;
-};
-
 export type MostVisitedPoi = {
   name: string;
   count: number;
@@ -32,7 +22,9 @@ export function usePassportStats(): PassportStats {
   const [totalCheckIns, setTotalCheckIns] = useState(0);
   const [uniquePois, setUniquePois] = useState(0);
   const [mostVisited, setMostVisited] = useState<MostVisitedPoi | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Start in loading state if a user is already present — avoids a one-frame
+  // flash of zeros before the first async fetch sets isLoading(true).
+  const [isLoading, setIsLoading] = useState(!!userId);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
@@ -68,11 +60,9 @@ export function usePassportStats(): PassportStats {
       // Step 2: delegate all aggregation to the server via RPC.
       // get_passport_stats always returns exactly one row (aggregate over empty
       // set yields 0s / NULLs), so .single() is safe.
-      // Cast: get_passport_stats is not yet in types/supabase.ts — regenerate
-      // after the migration is reflected by `supabase gen types typescript`.
-      const { data: stats, error: statsError } = (await supabase
+      const { data: stats, error: statsError } = await supabase
         .rpc("get_passport_stats", { p_semester_id: profile.semester_id })
-        .single()) as { data: GetPassportStatsRow | null; error: { message: string } | null };
+        .single();
 
       if (isCancelled?.()) return;
 

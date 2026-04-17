@@ -36,3 +36,9 @@ AS $$
     (SELECT visit_count::integer FROM counts ORDER BY visit_count DESC, last_visit DESC LIMIT 1) AS most_visited_count
   FROM counts;
 $$;
+
+-- Lock down execution to authenticated users only. PostgreSQL grants EXECUTE
+-- to PUBLIC by default; anon callers get zeros (auth.uid() = NULL matches no
+-- rows), but explicit restriction is cleaner and matches project conventions.
+REVOKE EXECUTE ON FUNCTION public.get_passport_stats(uuid) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.get_passport_stats(uuid) TO   authenticated;

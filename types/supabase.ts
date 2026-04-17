@@ -360,12 +360,12 @@ export type Database = {
       checkin_window: { Args: { ts: string }; Returns: unknown };
       get_passport_stats: {
         Args: { p_semester_id: string };
-        Returns: {
+        Returns: Array<{
           total_check_ins: number;
           unique_pois: number;
           most_visited_name: string | null;
           most_visited_count: number | null;
-        };
+        }>;
       };
     };
     Enums: {
