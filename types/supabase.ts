@@ -358,6 +358,14 @@ export type Database = {
     };
     Functions: {
       checkin_window: { Args: { ts: string }; Returns: unknown };
+      get_passport_stats: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          total_check_ins: number;
+          unique_pois: number;
+          most_visited_poi_id: string | null;
+        }[];
+      };
     };
     Enums: {
       friendship_status: "pending" | "accepted";
