@@ -17,6 +17,7 @@ export async function insertCheckIn(
     .eq("id", user.id)
     .single();
   if (profileError) throw new Error(profileError.message);
+  if (!profile.semester_id) throw new Error("No active semester for user");
 
   const { error } = await supabase.from("check_ins").insert({
     user_id: user.id,
