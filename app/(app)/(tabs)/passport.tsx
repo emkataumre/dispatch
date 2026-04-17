@@ -7,6 +7,7 @@ import { usePassportStats } from "@/hooks/usePassportStats";
 import { BADGE_CATALOG, type BadgeDefinition } from "@/lib/badges/catalog";
 import { StatCard } from "@/components/passport/StatCard";
 import { BadgeCell } from "@/components/passport/BadgeCell";
+import { BadgeDetailModal } from "@/components/passport/BadgeDetailModal";
 
 export default function PassportScreen() {
   const router = useRouter();
@@ -14,9 +15,7 @@ export default function PassportScreen() {
   const { signOut } = useAuth();
   const stats = usePassportStats();
 
-  // Selected badge drives BadgeDetailModal — wired in the next sub-feature.
   const [selectedBadge, setSelectedBadge] = useState<BadgeDefinition | null>(null);
-  void selectedBadge; // used by BadgeDetailModal (next sub-feature)
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -29,74 +28,89 @@ export default function PassportScreen() {
   }, [navigation]);
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      testID="passport-screen"
-    >
-      {/* ── Stats section ──────────────────────────────────────────────── */}
-      <Text style={styles.sectionLabel}>This Semester</Text>
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        testID="passport-screen"
+      >
+        {/* ── Stats section ──────────────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>This Semester</Text>
 
-      {stats.isLoading ? (
-        <ActivityIndicator
-          size="small"
-          color="#131313"
-          style={styles.loader}
-          testID="stats-loading"
-        />
-      ) : (
-        <>
-          {stats.error && (
-            <Text style={styles.errorText} testID="stats-error">
-              {stats.error}
-            </Text>
-          )}
-
-          <View style={styles.statsRow}>
-            <StatCard label="Check-ins" value={stats.totalCheckIns} testID="stat-total-check-ins" />
-            <View style={styles.statGap} />
-            <StatCard label="Places Visited" value={stats.uniquePois} testID="stat-unique-pois" />
-          </View>
-
-          <StatCard
-            label="Most Visited"
-            value={stats.mostVisited?.name ?? "—"}
-            compact
-            testID="stat-most-visited"
+        {stats.isLoading ? (
+          <ActivityIndicator
+            size="small"
+            color="#131313"
+            style={styles.loader}
+            testID="stats-loading"
           />
-        </>
-      )}
+        ) : (
+          <>
+            {stats.error && (
+              <Text style={styles.errorText} testID="stats-error">
+                {stats.error}
+              </Text>
+            )}
 
-      {/* ── Badges section ─────────────────────────────────────────────── */}
-      <Text style={[styles.sectionLabel, styles.badgesSectionLabel]}>Badges</Text>
-      <Text style={styles.badgesHint}>
-        {/* Badge count will be driven by the engine once it ships. */}0 / {BADGE_CATALOG.length}{" "}
-        earned
-      </Text>
+            <View style={styles.statsRow}>
+              <StatCard
+                label="Check-ins"
+                value={stats.totalCheckIns}
+                testID="stat-total-check-ins"
+              />
+              <View style={styles.statGap} />
+              <StatCard label="Places Visited" value={stats.uniquePois} testID="stat-unique-pois" />
+            </View>
 
-      <View style={styles.badgeGrid} testID="badge-grid">
-        {BADGE_CATALOG.map((badge) => (
-          <BadgeCell
-            key={badge.id}
-            badge={badge}
-            unlocked={false}
-            onPress={() => setSelectedBadge(badge)}
-          />
-        ))}
-      </View>
+            <StatCard
+              label="Most Visited"
+              value={stats.mostVisited?.name ?? "—"}
+              compact
+              testID="stat-most-visited"
+            />
+          </>
+        )}
 
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <Pressable onPress={signOut} style={styles.signOutButton} accessibilityRole="button">
-        <Text style={styles.signOut}>Sign out</Text>
-      </Pressable>
-    </ScrollView>
+        {/* ── Badges section ─────────────────────────────────────────────── */}
+        <Text style={[styles.sectionLabel, styles.badgesSectionLabel]}>Badges</Text>
+        <Text style={styles.badgesHint}>
+          {/* Badge count will be driven by the engine once it ships. */}0 / {BADGE_CATALOG.length}{" "}
+          earned
+        </Text>
+
+        <View style={styles.badgeGrid} testID="badge-grid">
+          {BADGE_CATALOG.map((badge) => (
+            <BadgeCell
+              key={badge.id}
+              badge={badge}
+              unlocked={false}
+              onPress={() => setSelectedBadge(badge)}
+            />
+          ))}
+        </View>
+
+        {/* ── Footer ─────────────────────────────────────────────────────── */}
+        <Pressable onPress={signOut} style={styles.signOutButton} accessibilityRole="button">
+          <Text style={styles.signOut}>Sign out</Text>
+        </Pressable>
+      </ScrollView>
+
+      <BadgeDetailModal
+        badge={selectedBadge}
+        unlocked={false}
+        onClose={() => setSelectedBadge(null)}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  root: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: 16,
