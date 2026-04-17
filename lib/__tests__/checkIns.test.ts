@@ -61,17 +61,13 @@ describe("insertCheckIn", () => {
     });
   });
 
-  it("handles null semester_id from profile", async () => {
+  it("throws when profile has no semester_id", async () => {
     const mock = makeMockSupabase({
       profileResult: { data: { semester_id: null }, error: null },
     });
-    await insertCheckIn(asClient(mock), { poiId: MOCK_POI_ID });
 
-    const checkInsFrom = mock.from.mock.results.find(
-      (_r: { value: unknown }, i: number) => mock.from.mock.calls[i][0] === "check_ins",
-    )!.value;
-    expect(checkInsFrom.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ semester_id: null }),
+    await expect(insertCheckIn(asClient(mock), { poiId: MOCK_POI_ID })).rejects.toThrow(
+      "No active semester for user",
     );
   });
 

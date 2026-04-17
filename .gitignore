@@ -3,7 +3,9 @@
 
 # Project planning docs (local only)
 CLAUDE.md
-docs/
+docs/*
+# Generated reference docs are tracked
+!docs/reference/
 
 # Expo
 node_modules/
