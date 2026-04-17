@@ -181,7 +181,7 @@ describe("usePassportStats — authenticated user with active semester", () => {
     const result = renderHook(() => usePassportStats());
     await flush();
 
-    expect(result.current.mostVisited).toEqual({ poiId: "poi-2", name: "La Banchina", count: 3 });
+    expect(result.current.mostVisited).toEqual({ name: "La Banchina", count: 3 });
   });
 
   it("tiebreaks by most recent check-in when two POIs share top count", async () => {
@@ -199,7 +199,6 @@ describe("usePassportStats — authenticated user with active semester", () => {
     const result = renderHook(() => usePassportStats());
     await flush();
 
-    expect(result.current.mostVisited?.poiId).toBe("poi-1");
     expect(result.current.mostVisited?.name).toBe("Paludan");
     expect(result.current.mostVisited?.count).toBe(2);
   });

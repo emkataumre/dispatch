@@ -2,8 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
+// Local RPC return type — update types/supabase.ts once the get_passport_stats
+// migration is reflected by `supabase gen types`. Until then this keeps TS happy
+// without widening to `any`.
+type GetPassportStatsRow = {
+  total_check_ins: number;
+  unique_pois: number;
+  most_visited_name: string | null;
+  most_visited_count: number | null;
+};
+
 export type MostVisitedPoi = {
-  poiId: string;
   name: string;
   count: number;
 };
@@ -15,14 +24,6 @@ export type PassportStats = {
   isLoading: boolean;
   error: string | null;
 };
-
-type PoiJoin = { name?: string };
-
-function getPoiName(pois: unknown): string | null {
-  if (!pois) return null;
-  if (Array.isArray(pois)) return (pois[0] as PoiJoin)?.name ?? null;
-  return (pois as PoiJoin).name ?? null;
-}
 
 export function usePassportStats(): PassportStats {
   const { session } = useAuth();
@@ -41,7 +42,6 @@ export function usePassportStats(): PassportStats {
       setError(null);
 
       // Step 1: get the user's active semester_id from their profile.
-      // semester_id is nullable until issue #31 migration lands.
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("semester_id")
@@ -57,7 +57,7 @@ export function usePassportStats(): PassportStats {
       }
 
       if (!profile.semester_id) {
-        // semester_id nullable until issue #31 migration. Show zeros; don't aggregate all-time.
+        // No active semester — show zeros without querying check_ins.
         setTotalCheckIns(0);
         setUniquePois(0);
         setMostVisited(null);
@@ -65,54 +65,30 @@ export function usePassportStats(): PassportStats {
         return;
       }
 
-      // Step 2: fetch all check-ins for this user in the active semester,
-      // ordered desc so the first occurrence of each poi_id is the most recent.
-      const { data, error: checkInsError } = await supabase
-        .from("check_ins")
-        .select("poi_id, checked_in_at, pois(name)")
-        .eq("user_id", userId)
-        .eq("semester_id", profile.semester_id)
-        .order("checked_in_at", { ascending: false });
+      // Step 2: delegate all aggregation to the server via RPC.
+      // get_passport_stats always returns exactly one row (aggregate over empty
+      // set yields 0s / NULLs), so .single() is safe.
+      // Cast: get_passport_stats is not yet in types/supabase.ts — regenerate
+      // after the migration is reflected by `supabase gen types typescript`.
+      const { data: stats, error: statsError } = (await supabase
+        .rpc("get_passport_stats", { p_semester_id: profile.semester_id })
+        .single()) as { data: GetPassportStatsRow | null; error: { message: string } | null };
 
       if (isCancelled?.()) return;
 
-      if (checkInsError) {
-        setError(checkInsError.message);
+      if (statsError) {
+        setError(statsError.message);
         setIsLoading(false);
         return;
       }
 
-      const rows = data ?? [];
-      setTotalCheckIns(rows.length);
-      setUniquePois(new Set(rows.map((r) => r.poi_id)).size);
-
-      // Group by poi_id, counting visits. Because rows are sorted desc, the first
-      // occurrence of each poi_id carries the most recent checked_in_at — used as
-      // tiebreaker when two POIs share the top visit count.
-      const byPoi = new Map<string, { name: string; count: number; latestAt: string }>();
-      for (const row of rows) {
-        const name = getPoiName(row.pois) ?? "Unknown";
-        const existing = byPoi.get(row.poi_id);
-        if (!existing) {
-          byPoi.set(row.poi_id, { name, count: 1, latestAt: row.checked_in_at });
-        } else {
-          byPoi.set(row.poi_id, { ...existing, count: existing.count + 1 });
-          // latestAt intentionally not updated — first insertion holds most recent.
-        }
-      }
-
-      if (byPoi.size === 0) {
-        setMostVisited(null);
-      } else {
-        const [[poiId, { name, count }]] = [...byPoi.entries()].sort((a, b) => {
-          const countDiff = b[1].count - a[1].count;
-          if (countDiff !== 0) return countDiff;
-          // Tiebreak: most recent last check-in wins.
-          return b[1].latestAt.localeCompare(a[1].latestAt);
-        });
-        setMostVisited({ poiId, name, count });
-      }
-
+      setTotalCheckIns(stats?.total_check_ins ?? 0);
+      setUniquePois(stats?.unique_pois ?? 0);
+      setMostVisited(
+        stats?.most_visited_name != null
+          ? { name: stats.most_visited_name, count: stats.most_visited_count ?? 0 }
+          : null,
+      );
       setIsLoading(false);
     },
     [userId],

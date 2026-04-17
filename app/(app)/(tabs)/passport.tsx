@@ -1,13 +1,22 @@
-import { useLayoutEffect } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useState, useLayoutEffect } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/hooks/useAuth";
+import { usePassportStats } from "@/hooks/usePassportStats";
+import { BADGE_CATALOG, type BadgeDefinition } from "@/lib/badges/catalog";
+import { StatCard } from "@/components/passport/StatCard";
+import { BadgeCell } from "@/components/passport/BadgeCell";
 
 export default function PassportScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { signOut } = useAuth();
+  const stats = usePassportStats();
+
+  // Selected badge drives BadgeDetailModal — wired in the next sub-feature.
+  const [selectedBadge, setSelectedBadge] = useState<BadgeDefinition | null>(null);
+  void selectedBadge; // used by BadgeDetailModal (next sub-feature)
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -20,18 +29,125 @@ export default function PassportScreen() {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Passport — coming in Phase 6</Text>
-      <Pressable onPress={signOut}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      testID="passport-screen"
+    >
+      {/* ── Stats section ──────────────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>This Semester</Text>
+
+      {stats.isLoading ? (
+        <ActivityIndicator
+          size="small"
+          color="#131313"
+          style={styles.loader}
+          testID="stats-loading"
+        />
+      ) : (
+        <>
+          {stats.error && (
+            <Text style={styles.errorText} testID="stats-error">
+              {stats.error}
+            </Text>
+          )}
+
+          <View style={styles.statsRow}>
+            <StatCard label="Check-ins" value={stats.totalCheckIns} testID="stat-total-check-ins" />
+            <View style={styles.statGap} />
+            <StatCard label="Places Visited" value={stats.uniquePois} testID="stat-unique-pois" />
+          </View>
+
+          <StatCard
+            label="Most Visited"
+            value={stats.mostVisited?.name ?? "—"}
+            compact
+            testID="stat-most-visited"
+          />
+        </>
+      )}
+
+      {/* ── Badges section ─────────────────────────────────────────────── */}
+      <Text style={[styles.sectionLabel, styles.badgesSectionLabel]}>Badges</Text>
+      <Text style={styles.badgesHint}>
+        {/* Badge count will be driven by the engine once it ships. */}0 / {BADGE_CATALOG.length}{" "}
+        earned
+      </Text>
+
+      <View style={styles.badgeGrid} testID="badge-grid">
+        {BADGE_CATALOG.map((badge) => (
+          <BadgeCell
+            key={badge.id}
+            badge={badge}
+            unlocked={false}
+            onPress={() => setSelectedBadge(badge)}
+          />
+        ))}
+      </View>
+
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      <Pressable onPress={signOut} style={styles.signOutButton} accessibilityRole="button">
         <Text style={styles.signOut}>Sign out</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-  text: { fontSize: 16, color: "#999", marginBottom: 24 },
-  headerButton: { marginRight: 16 },
-  signOut: { color: "#FF3B30", fontSize: 16 },
+  scroll: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 48,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#999",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  badgesSectionLabel: {
+    marginTop: 32,
+  },
+  badgesHint: {
+    fontSize: 13,
+    color: "#999",
+    marginBottom: 16,
+  },
+  loader: {
+    marginVertical: 24,
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#E51E1E",
+    marginBottom: 12,
+  },
+  statsRow: {
+    flexDirection: "row",
+    marginBottom: 10,
+  },
+  statGap: {
+    width: 10,
+  },
+  badgeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -4,
+  },
+  headerButton: {
+    marginRight: 16,
+  },
+  signOutButton: {
+    marginTop: 32,
+    alignSelf: "center",
+  },
+  signOut: {
+    color: "#E51E1E",
+    fontSize: 15,
+  },
 });
