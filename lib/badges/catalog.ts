@@ -80,7 +80,7 @@ export const BADGE_CATALOG = [
     id: "cartographer",
     name: "Cartographer",
     description: "No corner of the map left unvisited.",
-    criteriaHint: "Check in to a place in every POI category.",
+    criteriaHint: "Check in to many different places across the city.",
     category: "exploration",
     icon: "🗺️",
   },

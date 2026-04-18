@@ -37,7 +37,7 @@ export function BadgeUnlockToast({ badge, onDismiss }: Props) {
   }, [badge, opacity, onDismiss]);
 
   return (
-    <Animated.View style={[styles.container, { opacity }]} pointerEvents="none">
+    <Animated.View style={[styles.container, { opacity, pointerEvents: "none" }]}>
       <Text style={styles.icon}>{badge?.icon ?? ""}</Text>
       <Text style={styles.text}>
         Badge unlocked: <Text style={styles.badgeName}>{badge?.name ?? ""}</Text>

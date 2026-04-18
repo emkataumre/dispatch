@@ -11,29 +11,37 @@ const mockUseAuth = jest.fn();
 // ---------------------------------------------------------------------------
 // Module mocks
 // ---------------------------------------------------------------------------
-jest.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: jest.fn((table: string) => {
-      if (table === "profiles") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({ single: mockProfileSingleFn })),
-          })),
-        };
-      }
-      if (table === "user_badges") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              eq: jest.fn(() => mockBadgesQueryFn()),
+jest.mock("@/lib/supabase", () => {
+  const mockChannel = {
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn().mockReturnThis(),
+  };
+  return {
+    supabase: {
+      from: jest.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({ single: mockProfileSingleFn })),
             })),
-          })),
-        };
-      }
-      throw new Error(`Unexpected table in mock: ${table}`);
-    }),
-  },
-}));
+          };
+        }
+        if (table === "user_badges") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                eq: jest.fn(() => mockBadgesQueryFn()),
+              })),
+            })),
+          };
+        }
+        throw new Error(`Unexpected table in mock: ${table}`);
+      }),
+      channel: jest.fn(() => mockChannel),
+      removeChannel: jest.fn(),
+    },
+  };
+});
 
 jest.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockUseAuth(),

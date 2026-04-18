@@ -78,5 +78,33 @@ export function useUserBadges(): UserBadgesState {
     };
   }, [userId, load]);
 
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`user-badges-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "user_badges",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          load();
+        },
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`useUserBadges: channel ${status} for user ${userId}`);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, load]);
+
   return { awardedIds, isLoading, error };
 }
