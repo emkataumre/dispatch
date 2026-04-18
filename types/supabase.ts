@@ -33,6 +33,45 @@ export type Database = {
   };
   public: {
     Tables: {
+      user_badges: {
+        Row: {
+          awarded_at: string;
+          badge_id: string;
+          id: string;
+          semester_id: string;
+          user_id: string;
+        };
+        Insert: {
+          awarded_at?: string;
+          badge_id: string;
+          id?: string;
+          semester_id: string;
+          user_id: string;
+        };
+        Update: {
+          awarded_at?: string;
+          badge_id?: string;
+          id?: string;
+          semester_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_semester_id_fkey";
+            columns: ["semester_id"];
+            isOneToOne: false;
+            referencedRelation: "semesters";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_badges_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       check_ins: {
         Row: {
           checked_in_at: string;
