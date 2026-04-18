@@ -4,6 +4,7 @@ import { useRouter, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/hooks/useAuth";
 import { usePassportStats } from "@/hooks/usePassportStats";
+import { useUserBadges } from "@/hooks/useUserBadges";
 import { BADGE_CATALOG, type BadgeDefinition } from "@/lib/badges/catalog";
 import { StatCard } from "@/components/passport/StatCard";
 import { BadgeCell } from "@/components/passport/BadgeCell";
@@ -14,6 +15,7 @@ export default function PassportScreen() {
   const navigation = useNavigation();
   const { signOut } = useAuth();
   const stats = usePassportStats();
+  const badges = useUserBadges();
 
   const [selectedBadge, setSelectedBadge] = useState<BadgeDefinition | null>(null);
 
@@ -73,21 +75,36 @@ export default function PassportScreen() {
 
         {/* ── Badges section ─────────────────────────────────────────────── */}
         <Text style={[styles.sectionLabel, styles.badgesSectionLabel]}>Badges</Text>
-        <Text style={styles.badgesHint}>
-          {/* Badge count will be driven by the engine once it ships. */}0 / {BADGE_CATALOG.length}{" "}
-          earned
-        </Text>
 
-        <View style={styles.badgeGrid} testID="badge-grid">
-          {BADGE_CATALOG.map((badge) => (
-            <BadgeCell
-              key={badge.id}
-              badge={badge}
-              unlocked={false}
-              onPress={() => setSelectedBadge(badge)}
-            />
-          ))}
-        </View>
+        {badges.isLoading ? (
+          <ActivityIndicator
+            size="small"
+            color="#131313"
+            style={styles.loader}
+            testID="badges-loading"
+          />
+        ) : (
+          <>
+            {badges.error && (
+              <Text style={styles.errorText} testID="badges-error">
+                {badges.error}
+              </Text>
+            )}
+            <Text style={styles.badgesHint}>
+              {badges.awardedIds.size} / {BADGE_CATALOG.length} earned
+            </Text>
+            <View style={styles.badgeGrid} testID="badge-grid">
+              {BADGE_CATALOG.map((badge) => (
+                <BadgeCell
+                  key={badge.id}
+                  badge={badge}
+                  unlocked={badges.awardedIds.has(badge.id)}
+                  onPress={() => setSelectedBadge(badge)}
+                />
+              ))}
+            </View>
+          </>
+        )}
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <Pressable onPress={signOut} style={styles.signOutButton} accessibilityRole="button">
@@ -97,7 +114,7 @@ export default function PassportScreen() {
 
       <BadgeDetailModal
         badge={selectedBadge}
-        unlocked={false}
+        unlocked={selectedBadge != null && badges.awardedIds.has(selectedBadge.id)}
         onClose={() => setSelectedBadge(null)}
       />
     </View>
