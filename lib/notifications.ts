@@ -46,7 +46,6 @@ setupNotificationCategories().catch((err) => {
 // notification types are added in Phase 7.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: false,
