@@ -36,5 +36,5 @@ SELECT cron.schedule(
   $$SELECT public.generate_upcoming_semesters()$$
 );
 
--- 4. Run immediately to fill any gaps
+-- 4. Run immediately to fill any gaps (also inserts Spring 2026 if missing)
 SELECT public.generate_upcoming_semesters();
