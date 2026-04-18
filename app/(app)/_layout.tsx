@@ -1,10 +1,13 @@
 import { Stack } from "expo-router";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useGeofenceNotifications } from "@/hooks/useGeofenceNotifications";
+import { useNewBadges } from "@/hooks/useNewBadges";
 import { CheckInToast } from "@/components/CheckInToast";
+import { BadgeUnlockToast } from "@/components/BadgeUnlockToast";
 
 export default function AppLayout() {
   const { toast } = useGeofenceNotifications();
+  const { newBadge, dismiss } = useNewBadges();
 
   return (
     <BottomSheetModalProvider>
@@ -16,6 +19,7 @@ export default function AppLayout() {
         />
       </Stack>
       <CheckInToast visible={toast.visible} message={toast.message} />
+      <BadgeUnlockToast badge={newBadge} onDismiss={dismiss} />
     </BottomSheetModalProvider>
   );
 }
