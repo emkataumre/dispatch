@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { supabase } from "./supabase";
 
 export const CHECKIN_CATEGORY = "geofence-checkin";
 export const ACTION_CONFIRM = "confirm-checkin";
@@ -52,3 +54,63 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// Registers the device's Expo push token in `push_tokens` for the current user.
+// Non-fatal on every failure path: push delivery is opt-in infra; the app must
+// keep working without it. All exits log via console.warn — never throws.
+//
+// Permission rules: prompt whenever the OS still allows it (`canAskAgain`),
+// not only on the legacy `undetermined` status. Android 13+ reports a fresh
+// install as `denied` with `canAskAgain: true`, so a strict `undetermined`
+// check would never prompt. If the user has hard-denied, respect that —
+// Phase 7 will add a settings-driven re-ask.
+export async function registerForPushNotifications(): Promise<void> {
+  const settings = await Notifications.getPermissionsAsync();
+  let granted = settings.granted;
+  if (!granted && settings.canAskAgain) {
+    const requested = await Notifications.requestPermissionsAsync();
+    granted = requested.granted;
+  }
+  if (!granted) {
+    console.warn("[notifications] Push permission not granted; skipping token registration");
+    return;
+  }
+
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  if (!projectId) {
+    console.warn("[notifications] No EAS projectId in app config; skipping token registration");
+    return;
+  }
+
+  // Fails on iOS simulator (no APNs) and on real iOS devices until APNs key is
+  // configured in Expo. On Android dev builds it works out of the box via
+  // Expo's default FCM credentials. Treat as non-fatal and bail.
+  let token: string;
+  try {
+    const result = await Notifications.getExpoPushTokenAsync({ projectId });
+    token = result.data;
+  } catch (err) {
+    console.warn("[notifications] getExpoPushTokenAsync failed:", err);
+    return;
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) {
+    console.warn("[notifications] auth.getUser failed:", userError.message);
+    return;
+  }
+  if (!user) {
+    console.warn("[notifications] No authenticated user; skipping token upsert");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("push_tokens")
+    .upsert({ user_id: user.id, expo_push_token: token }, { onConflict: "user_id" });
+  if (error) {
+    console.warn("[notifications] push_tokens upsert failed:", error.message);
+  }
+}

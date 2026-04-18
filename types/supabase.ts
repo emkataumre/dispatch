@@ -352,6 +352,24 @@ export type Database = {
           },
         ];
       };
+      push_tokens: {
+        Row: {
+          expo_push_token: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          expo_push_token: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          expo_push_token?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       semesters: {
         Row: {
           created_at: string | null;
