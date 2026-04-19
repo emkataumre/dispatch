@@ -6,6 +6,7 @@ import { act, create } from "react-test-renderer";
 // ---------------------------------------------------------------------------
 type InsertPayload = { new: { badge_id: string } };
 type InsertHandler = (payload: InsertPayload) => void;
+type StatusHandler = (status: string, err?: Error) => void;
 
 // ---------------------------------------------------------------------------
 // Mock leaf fns (mock* prefix — only lookups inside factory must be lazy)
@@ -72,6 +73,7 @@ const USER_ID = "user-1";
 const OTHER_USER_ID = "user-2";
 
 let capturedInsertHandler: InsertHandler | null = null;
+let capturedSubscribeHandler: StatusHandler | null = null;
 
 // Guard against silent drift if the catalog ever renames "pioneer".
 beforeAll(() => {
@@ -81,14 +83,16 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   capturedInsertHandler = null;
+  capturedSubscribeHandler = null;
 
-  mockChannel.on.mockImplementation(
-    (_event: string, _cfg: unknown, handler: InsertHandler) => {
-      capturedInsertHandler = handler;
-      return mockChannel;
-    },
-  );
-  mockChannel.subscribe.mockReturnValue(mockChannel);
+  mockChannel.on.mockImplementation((_event: string, _cfg: unknown, handler: InsertHandler) => {
+    capturedInsertHandler = handler;
+    return mockChannel;
+  });
+  mockChannel.subscribe.mockImplementation((handler: StatusHandler) => {
+    capturedSubscribeHandler = handler;
+    return mockChannel;
+  });
 
   const { AppState } = require("react-native");
   AppState.currentState = "active";
@@ -140,7 +144,8 @@ describe("useNewBadges — channel lifecycle", () => {
   it("removes channel on unmount", () => {
     renderHook(() => useNewBadges());
 
-    expect(channelFn).toHaveBeenCalledWith(`new-badges-${USER_ID}`);
+    expect(channelFn).toHaveBeenCalledTimes(1);
+    expect(channelFn.mock.calls[0][0]).toMatch(/^new-badges-\d+-[\d.]+$/);
     expect(removeChannelFn).not.toHaveBeenCalled();
 
     act(() => {
@@ -163,7 +168,8 @@ describe("useNewBadges — channel lifecycle", () => {
     act(() => {
       activeRenderer = create(React.createElement(TestComponent));
     });
-    expect(channelFn).toHaveBeenCalledWith(`new-badges-${USER_ID}`);
+    expect(channelFn).toHaveBeenCalledTimes(1);
+    expect(channelFn.mock.calls[0][0]).toMatch(/^new-badges-\d+-[\d.]+$/);
     expect(removeChannelFn).not.toHaveBeenCalled();
 
     mockUseAuth.mockReturnValue({ session: { user: { id: OTHER_USER_ID } } });
@@ -172,7 +178,8 @@ describe("useNewBadges — channel lifecycle", () => {
     });
 
     expect(removeChannelFn).toHaveBeenCalledTimes(1);
-    expect(channelFn).toHaveBeenCalledWith(`new-badges-${OTHER_USER_ID}`);
+    expect(channelFn).toHaveBeenCalledTimes(2);
+    expect(channelFn.mock.calls[1][0]).toMatch(/^new-badges-\d+-[\d.]+$/);
   });
 });
 
@@ -189,5 +196,64 @@ describe("useNewBadges — dismiss", () => {
       result.current.dismiss();
     });
     expect(result.current.newBadge).toBeNull();
+  });
+});
+
+describe("useNewBadges — Realtime status", () => {
+  it("sets realtimeError on CHANNEL_ERROR (foreground)", () => {
+    const result = renderHook(() => useNewBadges());
+    expect(result.current.realtimeError).toBeNull();
+
+    act(() => {
+      capturedSubscribeHandler!("CHANNEL_ERROR");
+    });
+
+    expect(result.current.realtimeError).not.toBeNull();
+  });
+
+  it("sets realtimeError on TIMED_OUT (foreground)", () => {
+    const result = renderHook(() => useNewBadges());
+
+    act(() => {
+      capturedSubscribeHandler!("TIMED_OUT");
+    });
+
+    expect(result.current.realtimeError).not.toBeNull();
+  });
+
+  it("clears realtimeError on SUBSCRIBED after a prior error", () => {
+    const result = renderHook(() => useNewBadges());
+
+    act(() => {
+      capturedSubscribeHandler!("CHANNEL_ERROR");
+    });
+    expect(result.current.realtimeError).not.toBeNull();
+
+    act(() => {
+      capturedSubscribeHandler!("SUBSCRIBED");
+    });
+    expect(result.current.realtimeError).toBeNull();
+  });
+
+  it("sets realtimeError on CLOSED when app is foregrounded", () => {
+    const result = renderHook(() => useNewBadges());
+
+    act(() => {
+      capturedSubscribeHandler!("CLOSED");
+    });
+
+    expect(result.current.realtimeError).not.toBeNull();
+  });
+
+  it("does not set realtimeError on CLOSED when app is backgrounded", () => {
+    const result = renderHook(() => useNewBadges());
+
+    const { AppState } = require("react-native");
+    AppState.currentState = "background";
+    act(() => {
+      capturedSubscribeHandler!("CLOSED");
+    });
+
+    expect(result.current.realtimeError).toBeNull();
   });
 });
