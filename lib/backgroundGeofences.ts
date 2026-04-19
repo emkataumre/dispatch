@@ -95,6 +95,18 @@ export async function registerGeofences(
   pois: PoiSlim[],
   currentLocation?: { latitude: number; longitude: number },
 ): Promise<void> {
+  // Prime expo-task-manager's native singleton before any Location.* call. On
+  // Android, startGeofencingAsync reads TaskManagerInternalImpl's persisted-
+  // task SharedPreferences; if the TaskService context hasn't initialized yet
+  // (race against concurrent expo-notifications/FCM init at app cold-start),
+  // that SharedPreferences reference is null and getAll() throws NPE. Calling
+  // isTaskRegisteredAsync first forces the singleton to construct.
+  try {
+    await TaskManager.isTaskRegisteredAsync(GEOFENCE_TASK);
+  } catch (err) {
+    console.warn("[registerGeofences] TaskManager prime failed (continuing):", err);
+  }
+
   // Stop any stale geofence and location-update tasks from a previous session.
   // Without stopping the geofence task first, startGeofencingAsync may deliver
   // queued/pending Enter events from the old registration alongside the new one,
