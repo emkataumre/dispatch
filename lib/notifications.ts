@@ -37,9 +37,13 @@ export async function setupNotificationCategories(): Promise<void> {
 // MapScreen's useEffect, so headless task invocations tried to schedule on a
 // non-existent channel and silently failed. Fire-and-forget — errors are
 // logged but must not crash the module import chain.
-setupNotificationCategories().catch((err) => {
-  console.warn("[notifications] setupNotificationCategories failed at module scope:", err);
-});
+setupNotificationCategories()
+  .then(() => {
+    if (__DEV__) console.warn("[Notifications:setup] categories+channel ready");
+  })
+  .catch((err) => {
+    console.warn("[notifications] setupNotificationCategories failed at module scope:", err);
+  });
 
 // Module-level side effect (intentional): setNotificationHandler must be
 // registered early, before any notification arrives. Imported via index.js to
@@ -47,12 +51,19 @@ setupNotificationCategories().catch((err) => {
 // applies to all categories — scope to categoryIdentifier if additional
 // notification types are added in Phase 7.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    if (__DEV__) {
+      console.warn(
+        `[Notifications:handler] foreground category=${notification.request.content.categoryIdentifier} id=${notification.request.identifier}`,
+      );
+    }
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 // Registers the device's Expo push token in `push_tokens` for the current user.
