@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AppState } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,12 +13,14 @@ export function useNewBadges(): NewBadgesState {
   const { session } = useAuth();
   const userId = session?.user.id;
   const [newBadge, setNewBadge] = useState<BadgeDefinition | null>(null);
+  const channelId = useRef(`new-badges-${Date.now()}-${Math.random()}`);
 
   useEffect(() => {
     if (!userId) return;
 
+    channelId.current = `new-badges-${Date.now()}-${Math.random()}`;
     const channel = supabase
-      .channel(`new-badges-${userId}`)
+      .channel(channelId.current)
       .on(
         "postgres_changes",
         {
