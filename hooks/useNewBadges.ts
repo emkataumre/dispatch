@@ -18,6 +18,7 @@ export function useNewBadges(): NewBadgesState {
   useEffect(() => {
     if (!userId) return;
 
+    let active = true;
     channelId.current = `new-badges-${Date.now()}-${Math.random()}`;
     const channel = supabase
       .channel(channelId.current)
@@ -30,7 +31,7 @@ export function useNewBadges(): NewBadgesState {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          if (AppState.currentState !== "active") return;
+          if (!active || AppState.currentState !== "active") return;
           const badgeId = (payload.new as { badge_id: string }).badge_id;
           const badge = BADGE_BY_ID.get(badgeId);
           if (badge) {
@@ -38,13 +39,18 @@ export function useNewBadges(): NewBadgesState {
           }
         },
       )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn(`useNewBadges: channel ${status} for user ${userId}`);
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          if (AppState.currentState === "background") return;
+          console.error(
+            `useNewBadges: Realtime ${status} for user ${userId}`,
+            err ?? "(no details)",
+          );
         }
       });
 
     return () => {
+      active = false;
       supabase.removeChannel(channel);
     };
   }, [userId]);
