@@ -76,14 +76,16 @@ type ConfirmMockOptions = {
   authUser?: { id: string } | null;
   authError?: { message: string } | null;
   presencesResult?: { data: { id: string }[] | null; error: { message: string } | null };
-  updateResult?: { error: { message: string } | null };
+  updateResult?: { data?: { id: string }[] | null; error: { message: string } | null };
 };
+
+const MOCK_JOIN_IDS = ["join-a", "join-b"];
 
 function makeConfirmMock({
   authUser = { id: MOCK_USER_ID },
   authError = null,
   presencesResult = { data: MOCK_PRESENCE_IDS.map((id) => ({ id })), error: null },
-  updateResult = { error: null },
+  updateResult = { data: MOCK_JOIN_IDS.map((id) => ({ id })), error: null },
 }: ConfirmMockOptions = {}): MockSupabase {
   const getUser = jest.fn().mockResolvedValue({ data: { user: authUser }, error: authError });
 
@@ -92,8 +94,9 @@ function makeConfirmMock({
   const eqPresence = jest.fn().mockReturnValue({ is: isPresence });
   const selectPresence = jest.fn().mockReturnValue({ eq: eqPresence });
 
-  // Step 2 chain: from('presence_joins').update({...}).eq(...).eq(...).in(...)
-  const inJoins = jest.fn().mockResolvedValue(updateResult);
+  // Step 2 chain: from('presence_joins').update({...}).eq(...).eq(...).in(...).select("id")
+  const selectJoins = jest.fn().mockResolvedValue(updateResult);
+  const inJoins = jest.fn().mockReturnValue({ select: selectJoins });
   const eqConfirmed = jest.fn().mockReturnValue({ in: inJoins });
   const eqJoinerId = jest.fn().mockReturnValue({ eq: eqConfirmed });
   const updateJoins = jest.fn().mockReturnValue({ eq: eqJoinerId });
@@ -310,7 +313,7 @@ describe("confirmJoins", () => {
     const pjFrom = mock.from.mock.results.find(
       (r: { value?: { update?: unknown } }) => typeof r.value?.update === "function",
     )!.value;
-    expect(pjFrom.update).toHaveBeenCalledWith({ confirmed: true }, { count: "exact" });
+    expect(pjFrom.update).toHaveBeenCalledWith({ confirmed: true });
 
     const eqJoiner = pjFrom.update.mock.results[0].value;
     expect(eqJoiner.eq).toHaveBeenCalledWith("joiner_user_id", MOCK_USER_ID);
@@ -338,11 +341,24 @@ describe("confirmJoins", () => {
     );
   });
 
-  it("logs push stub after successful update", async () => {
-    const spy = jest.spyOn(console, "log").mockImplementation(() => {});
+  it("invokes sendPresencePush once per confirmed join id", async () => {
     const mock = makeConfirmMock();
     await confirmJoins(asClient(mock), { poiId: MOCK_POI_ID });
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining("Push stub"), MOCK_POI_ID);
-    spy.mockRestore();
+    expect(mockSendPresencePush).toHaveBeenCalledTimes(MOCK_JOIN_IDS.length);
+    for (const id of MOCK_JOIN_IDS) {
+      expect(mockSendPresencePush).toHaveBeenCalledWith("presence_arrived", id);
+    }
+  });
+
+  it("does not invoke sendPresencePush when no rows were updated", async () => {
+    const mock = makeConfirmMock({ updateResult: { data: [], error: null } });
+    await confirmJoins(asClient(mock), { poiId: MOCK_POI_ID });
+    expect(mockSendPresencePush).not.toHaveBeenCalled();
+  });
+
+  it("does not invoke sendPresencePush when updatedRows data is null", async () => {
+    const mock = makeConfirmMock({ updateResult: { data: null, error: null } });
+    await confirmJoins(asClient(mock), { poiId: MOCK_POI_ID });
+    expect(mockSendPresencePush).not.toHaveBeenCalled();
   });
 });

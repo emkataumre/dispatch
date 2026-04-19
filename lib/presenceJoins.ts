@@ -85,23 +85,27 @@ export async function confirmJoins(
 
   const presenceIds = presences.map((p) => p.id);
 
-  // Step 2: confirm the joiner's pending joins for those presences
-  const { error: updateError, count } = await supabase
+  // Step 2: confirm the joiner's pending joins for those presences. `.select("id")`
+  // returns the updated rows so we can emit an arrival push per confirmed join —
+  // a joiner with multiple broadcasters at the same POI gets one push per broadcaster.
+  const { data: updatedRows, error: updateError } = await supabase
     .from("presence_joins")
-    .update({ confirmed: true }, { count: "exact" })
+    .update({ confirmed: true })
     .eq("joiner_user_id", user.id)
     .eq("confirmed", false)
-    .in("presence_id", presenceIds);
+    .in("presence_id", presenceIds)
+    .select("id");
 
   if (updateError) throw new Error(updateError.message);
-  if (count === 0)
+  const rows = updatedRows ?? [];
+  if (rows.length === 0) {
     console.log("[confirmJoins] No joins updated — joiner has no pending joins at poi:", poiId);
+    return;
+  }
 
-  try {
-    // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log("[Push stub] arrival notification queued for broadcasters at poi:", poiId);
-  } catch (pushErr) {
-    console.error("[Push stub] Failed to queue arrival notification:", pushErr);
-    // Confirmation succeeded — push failure is non-fatal
+  // Fire-and-forget — sendPresencePush swallows + logs its own failures.
+  // Confirmation must not be blocked on push delivery.
+  for (const row of rows) {
+    void sendPresencePush("presence_arrived", row.id);
   }
 }
