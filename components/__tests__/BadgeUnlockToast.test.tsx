@@ -4,7 +4,7 @@ import { BadgeUnlockToast } from "../BadgeUnlockToast";
 import type { BadgeDefinition } from "@/lib/badges/catalog";
 
 const BADGE_A: BadgeDefinition = {
-  id: "first_check_in",
+  id: "first_step",
   name: "First Step",
   description: "Made your very first check-in.",
   criteriaHint: "Check in anywhere for the first time.",
