@@ -4,7 +4,7 @@ import { BadgeDetailModal } from "../BadgeDetailModal";
 import type { BadgeDefinition } from "@/lib/badges/catalog";
 
 const MOCK_BADGE: BadgeDefinition = {
-  id: "first_check_in",
+  id: "first_step",
   name: "First Step",
   description: "Made your very first check-in.",
   criteriaHint: "Check in anywhere for the first time.",
