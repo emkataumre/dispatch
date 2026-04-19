@@ -238,27 +238,41 @@ describe("cancelJoin", () => {
     expect(mockSendPresencePush).toHaveBeenCalledWith("presence_cancel", MOCK_JOIN_ID);
   });
 
-  it("invokes sendPresencePush BEFORE the delete (edge fn needs row)", async () => {
+  it("awaits sendPresencePush to fully resolve BEFORE starting the delete", async () => {
+    // Regression test for race: `void sendPresencePush(...)` would start both
+    // the edge-fn invocation and the delete concurrently — the delete could
+    // commit before the edge fn's row lookup, silently dropping the push.
+    // This test deliberately delays push resolution and asserts that delete
+    // has NOT been called until push has resolved.
     const mock = makeCancelMock();
-    const callOrder: string[] = [];
-    mockSendPresencePush.mockImplementationOnce(async () => {
-      callOrder.push("push");
-      return { sent: 1, failed: 0, missing_tokens: 0 };
-    });
-    // Capture the delete call timing via the mock's `delete` fn.
+    let pushResolved = false;
+    let deleteCalledBeforePushResolved: boolean | null = null;
+
+    mockSendPresencePush.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            pushResolved = true;
+            resolve({ sent: 1, failed: 0, missing_tokens: 0 });
+          }, 20);
+        }),
+    );
+
     const origFrom = mock.from;
     mock.from = jest.fn().mockImplementation((table: string) => {
       const result = origFrom(table);
       const origDelete = result.delete;
       result.delete = jest.fn().mockImplementation((...args: unknown[]) => {
-        callOrder.push("delete");
+        if (deleteCalledBeforePushResolved === null) {
+          deleteCalledBeforePushResolved = !pushResolved;
+        }
         return origDelete(...args);
       });
       return result;
     });
 
     await cancelJoin(asClient(mock), { joinId: MOCK_JOIN_ID });
-    expect(callOrder).toEqual(["push", "delete"]);
+    expect(deleteCalledBeforePushResolved).toBe(false);
   });
 });
 

@@ -45,8 +45,11 @@ export async function cancelJoin(
 
   // Send the cancel push BEFORE deleting the row — the edge function looks up
   // presence_joins by id to derive the recipient. Post-delete invocations 404.
-  // Fire-and-forget; non-fatal.
-  void sendPresencePush("presence_cancel", joinId);
+  // Must `await` (not `void`) so the edge fn's row lookup completes before the
+  // delete commits; otherwise both run concurrently and the lookup races the
+  // delete → silent push loss. `sendPresencePush` is non-fatal (returns null
+  // on error, never throws), so awaiting doesn't risk blocking the cancel.
+  await sendPresencePush("presence_cancel", joinId);
 
   const { count, error } = await supabase
     .from("presence_joins")
