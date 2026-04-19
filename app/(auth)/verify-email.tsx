@@ -1,7 +1,16 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { clearPushToken } from "@/lib/notifications";
 
 export default function VerifyEmailScreen() {
+  // Clear push token before sign-out (RLS blocks post-logout delete). Token
+  // is unlikely to exist at this pre-verified stage, but the call is cheap
+  // and keeps the sign-out contract consistent across call sites.
+  const handleSignOut = async () => {
+    await clearPushToken();
+    await supabase.auth.signOut();
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.emoji}>📬</Text>
@@ -9,7 +18,7 @@ export default function VerifyEmailScreen() {
       <Text style={styles.body}>
         We sent a verification link to your email. Tap it to activate your Dispatch account.
       </Text>
-      <Pressable style={styles.link} onPress={() => supabase.auth.signOut()}>
+      <Pressable style={styles.link} onPress={handleSignOut}>
         <Text style={styles.linkText}>Use a different email</Text>
       </Pressable>
     </View>

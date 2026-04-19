@@ -1,4 +1,4 @@
-import { registerForPushNotifications } from "../notifications";
+import { registerForPushNotifications, clearPushToken } from "../notifications";
 
 jest.mock("expo-notifications", () => ({
   getPermissionsAsync: jest.fn(),
@@ -20,13 +20,17 @@ jest.mock("expo-constants", () => ({
 jest.mock("../supabase", () => {
   const upsert = jest.fn();
   const getUser = jest.fn();
+  const deleteEq = jest.fn();
+  const del = jest.fn(() => ({ eq: deleteEq }));
   return {
     supabase: {
-      from: jest.fn(() => ({ upsert })),
+      from: jest.fn(() => ({ upsert, delete: del })),
       auth: { getUser },
     },
     __upsert: upsert,
     __getUser: getUser,
+    __delete: del,
+    __deleteEq: deleteEq,
   };
 });
 
@@ -34,6 +38,8 @@ import * as Notifications from "expo-notifications";
 const supabaseMock = jest.requireMock("../supabase");
 const mockUpsert: jest.Mock = supabaseMock.__upsert;
 const mockGetUser: jest.Mock = supabaseMock.__getUser;
+const mockDelete: jest.Mock = supabaseMock.__delete;
+const mockDeleteEq: jest.Mock = supabaseMock.__deleteEq;
 
 const mockedGetPermissions = Notifications.getPermissionsAsync as jest.Mock;
 const mockedRequestPermissions = Notifications.requestPermissionsAsync as jest.Mock;
@@ -47,6 +53,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   mockUpsert.mockResolvedValue({ error: null });
+  mockDeleteEq.mockResolvedValue({ error: null });
   mockGetUser.mockResolvedValue({ data: { user: { id: MOCK_USER_ID } }, error: null });
   mockedGetPermissions.mockResolvedValue({ status: "granted", granted: true, canAskAgain: true });
   mockedGetToken.mockResolvedValue({ data: MOCK_TOKEN });
@@ -146,6 +153,45 @@ describe("registerForPushNotifications", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("push_tokens upsert failed"),
       "rls denied",
+    );
+  });
+});
+
+describe("clearPushToken", () => {
+  it("deletes the push_tokens row scoped to the current user", async () => {
+    await clearPushToken();
+
+    expect(mockDelete).toHaveBeenCalled();
+    expect(mockDeleteEq).toHaveBeenCalledWith("user_id", MOCK_USER_ID);
+  });
+
+  it("no-ops silently when there is no authenticated user (nothing to clear)", async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+
+    await clearPushToken();
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("logs and bails when auth.getUser returns an error", async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: { message: "auth gone" } });
+
+    await expect(clearPushToken()).resolves.toBeUndefined();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("clearPushToken auth.getUser failed"),
+      "auth gone",
+    );
+  });
+
+  it("logs but does not throw when the delete returns an error", async () => {
+    mockDeleteEq.mockResolvedValueOnce({ error: { message: "network down" } });
+
+    await expect(clearPushToken()).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("push_tokens delete failed"),
+      "network down",
     );
   });
 });

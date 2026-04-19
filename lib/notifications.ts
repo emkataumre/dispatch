@@ -114,3 +114,30 @@ export async function registerForPushNotifications(): Promise<void> {
     console.warn("[notifications] push_tokens upsert failed:", error.message);
   }
 }
+
+// Deletes the current user's push_tokens row. Must be called BEFORE
+// supabase.auth.signOut() — after sign-out, the JWT is gone and RLS
+// (`auth.uid() = user_id`) would block the delete, leaving a stale token
+// that routes pushes for the account to the previous user's device.
+//
+// Non-fatal by contract: sign-out must never be blocked on this. All exits
+// log via console.warn and resolve normally; never throws.
+export async function clearPushToken(): Promise<void> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) {
+    console.warn("[notifications] clearPushToken auth.getUser failed:", userError.message);
+    return;
+  }
+  if (!user) {
+    // No session — nothing to clear. Not a warning.
+    return;
+  }
+
+  const { error } = await supabase.from("push_tokens").delete().eq("user_id", user.id);
+  if (error) {
+    console.warn("[notifications] push_tokens delete failed:", error.message);
+  }
+}
