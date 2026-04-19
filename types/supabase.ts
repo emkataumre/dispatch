@@ -6,72 +6,8 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4";
   };
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
   public: {
     Tables: {
-      user_badges: {
-        Row: {
-          awarded_at: string;
-          badge_id: string;
-          id: string;
-          semester_id: string;
-          user_id: string;
-        };
-        Insert: {
-          awarded_at?: string;
-          badge_id: string;
-          id?: string;
-          semester_id: string;
-          user_id: string;
-        };
-        Update: {
-          awarded_at?: string;
-          badge_id?: string;
-          id?: string;
-          semester_id?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "user_badges_semester_id_fkey";
-            columns: ["semester_id"];
-            isOneToOne: false;
-            referencedRelation: "semesters";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_badges_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       check_ins: {
         Row: {
           checked_in_at: string;
@@ -394,6 +330,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_badges: {
+        Row: {
+          awarded_at: string;
+          badge_id: string;
+          id: string;
+          semester_id: string;
+          user_id: string;
+        };
+        Insert: {
+          awarded_at?: string;
+          badge_id: string;
+          id?: string;
+          semester_id: string;
+          user_id: string;
+        };
+        Update: {
+          awarded_at?: string;
+          badge_id?: string;
+          id?: string;
+          semester_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_semester_id_fkey";
+            columns: ["semester_id"];
+            isOneToOne: false;
+            referencedRelation: "semesters";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       poi_avg_ratings: {
@@ -415,14 +383,16 @@ export type Database = {
     };
     Functions: {
       checkin_window: { Args: { ts: string }; Returns: unknown };
+      claim_push_token: { Args: { token: string }; Returns: boolean };
+      generate_upcoming_semesters: { Args: never; Returns: undefined };
       get_passport_stats: {
         Args: { p_semester_id: string };
-        Returns: Array<{
+        Returns: {
+          most_visited_count: number;
+          most_visited_name: string;
           total_check_ins: number;
           unique_pois: number;
-          most_visited_name: string | null;
-          most_visited_count: number | null;
-        }>;
+        }[];
       };
     };
     Enums: {
@@ -552,9 +522,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       friendship_status: ["pending", "accepted"],

@@ -18,16 +18,17 @@ jest.mock("expo-constants", () => ({
 }));
 
 jest.mock("../supabase", () => {
-  const upsert = jest.fn();
+  const rpc = jest.fn();
   const getUser = jest.fn();
   const deleteEq = jest.fn();
   const del = jest.fn(() => ({ eq: deleteEq }));
   return {
     supabase: {
-      from: jest.fn(() => ({ upsert, delete: del })),
+      from: jest.fn(() => ({ delete: del })),
+      rpc,
       auth: { getUser },
     },
-    __upsert: upsert,
+    __rpc: rpc,
     __getUser: getUser,
     __delete: del,
     __deleteEq: deleteEq,
@@ -36,7 +37,7 @@ jest.mock("../supabase", () => {
 
 import * as Notifications from "expo-notifications";
 const supabaseMock = jest.requireMock("../supabase");
-const mockUpsert: jest.Mock = supabaseMock.__upsert;
+const mockRpc: jest.Mock = supabaseMock.__rpc;
 const mockGetUser: jest.Mock = supabaseMock.__getUser;
 const mockDelete: jest.Mock = supabaseMock.__delete;
 const mockDeleteEq: jest.Mock = supabaseMock.__deleteEq;
@@ -52,7 +53,7 @@ let warnSpy: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-  mockUpsert.mockResolvedValue({ error: null });
+  mockRpc.mockResolvedValue({ data: true, error: null });
   mockDeleteEq.mockResolvedValue({ error: null });
   mockGetUser.mockResolvedValue({ data: { user: { id: MOCK_USER_ID } }, error: null });
   mockedGetPermissions.mockResolvedValue({ status: "granted", granted: true, canAskAgain: true });
@@ -64,13 +65,10 @@ afterEach(() => {
 });
 
 describe("registerForPushNotifications", () => {
-  it("upserts the token for the current user on the happy path", async () => {
+  it("calls the claim_push_token RPC with the device token on the happy path", async () => {
     await registerForPushNotifications();
 
-    expect(mockUpsert).toHaveBeenCalledWith(
-      { user_id: MOCK_USER_ID, expo_push_token: MOCK_TOKEN },
-      { onConflict: "user_id" },
-    );
+    expect(mockRpc).toHaveBeenCalledWith("claim_push_token", { token: MOCK_TOKEN });
   });
 
   it("requests permission when status is undetermined", async () => {
@@ -88,7 +86,7 @@ describe("registerForPushNotifications", () => {
     await registerForPushNotifications();
 
     expect(mockedRequestPermissions).toHaveBeenCalledTimes(1);
-    expect(mockUpsert).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalled();
   });
 
   it("requests permission on Android 13+ fresh install (denied + canAskAgain)", async () => {
@@ -108,7 +106,7 @@ describe("registerForPushNotifications", () => {
     await registerForPushNotifications();
 
     expect(mockedRequestPermissions).toHaveBeenCalledTimes(1);
-    expect(mockUpsert).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalled();
   });
 
   it("bails without DB write when permission is hard-denied (canAskAgain false)", async () => {
@@ -122,7 +120,7 @@ describe("registerForPushNotifications", () => {
 
     expect(mockedRequestPermissions).not.toHaveBeenCalled();
     expect(mockedGetToken).not.toHaveBeenCalled();
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Push permission not granted"));
   });
 
@@ -131,7 +129,7 @@ describe("registerForPushNotifications", () => {
 
     await registerForPushNotifications();
 
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("getExpoPushTokenAsync failed"),
       expect.any(Error),
@@ -143,16 +141,28 @@ describe("registerForPushNotifications", () => {
 
     await registerForPushNotifications();
 
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it("logs but does not throw when the upsert returns an error", async () => {
-    mockUpsert.mockResolvedValueOnce({ error: { message: "rls denied" } });
+  it("logs but does not throw when the RPC returns an error", async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "rpc failed" } });
 
     await expect(registerForPushNotifications()).resolves.toBeUndefined();
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("push_tokens upsert failed"),
-      "rls denied",
+      expect.stringContaining("claim_push_token RPC failed"),
+      "rpc failed",
+    );
+  });
+
+  it("logs but does not throw when the RPC returns non-true data (defense in depth)", async () => {
+    // RPC is defined to return true on success; any other return value (false,
+    // null) means something bypassed our contract. Warn and move on.
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+
+    await expect(registerForPushNotifications()).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("claim_push_token RPC failed"),
+      "returned non-true",
     );
   });
 });

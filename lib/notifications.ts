@@ -107,11 +107,17 @@ export async function registerForPushNotifications(): Promise<void> {
     return;
   }
 
-  const { error } = await supabase
-    .from("push_tokens")
-    .upsert({ user_id: user.id, expo_push_token: token }, { onConflict: "user_id" });
-  if (error) {
-    console.warn("[notifications] push_tokens upsert failed:", error.message);
+  // Use the claim_push_token RPC (SECURITY DEFINER) rather than a direct
+  // upsert: it atomically evicts any stale (otherUser, token) row bound to
+  // this device from a prior account before binding the token to the current
+  // user. Closes the account-swap gap where clearPushToken never ran (force-
+  // kill / no-network sign-out). See migration 037 + issue #50.
+  const { data: ok, error } = await supabase.rpc("claim_push_token", { token });
+  if (error || !ok) {
+    console.warn(
+      "[notifications] claim_push_token RPC failed:",
+      error?.message ?? "returned non-true",
+    );
   }
 }
 
