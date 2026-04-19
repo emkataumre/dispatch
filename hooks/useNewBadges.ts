@@ -6,6 +6,7 @@ import { BADGE_BY_ID, type BadgeDefinition } from "@/lib/badges/catalog";
 
 export type NewBadgesState = {
   newBadge: BadgeDefinition | null;
+  realtimeError: string | null;
   dismiss: () => void;
 };
 
@@ -13,6 +14,7 @@ export function useNewBadges(): NewBadgesState {
   const { session } = useAuth();
   const userId = session?.user.id;
   const [newBadge, setNewBadge] = useState<BadgeDefinition | null>(null);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const channelId = useRef(`new-badges-${Date.now()}-${Math.random()}`);
 
   useEffect(() => {
@@ -40,12 +42,16 @@ export function useNewBadges(): NewBadgesState {
         },
       )
       .subscribe((status, err) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        if (!active) return;
+        if (status === "SUBSCRIBED") {
+          setRealtimeError(null);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           if (AppState.currentState === "background") return;
           console.error(
             `useNewBadges: Realtime ${status} for user ${userId}`,
             err ?? "(no details)",
           );
+          setRealtimeError("Badge updates paused — pull to refresh.");
         }
       });
 
@@ -57,5 +63,5 @@ export function useNewBadges(): NewBadgesState {
 
   const dismiss = useCallback(() => setNewBadge(null), []);
 
-  return { newBadge, dismiss };
+  return { newBadge, realtimeError, dismiss };
 }
