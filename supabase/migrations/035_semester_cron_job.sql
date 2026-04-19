@@ -29,7 +29,12 @@ BEGIN
 END;
 $$;
 
--- 3. Schedule: 1st of every month at midnight UTC
+-- 3. Restrict access: maintenance function should not be callable by anon/authenticated via RPC.
+--    Supabase auto-grants EXECUTE to anon/authenticated on all public functions, so explicit
+--    revokes are required. The cron job runs as postgres and does not need these grants.
+REVOKE EXECUTE ON FUNCTION public.generate_upcoming_semesters() FROM PUBLIC, anon, authenticated;
+
+-- 4. Schedule: 1st of every month at midnight UTC
 SELECT cron.schedule(
   'generate-semesters',
   '0 0 1 * *',
