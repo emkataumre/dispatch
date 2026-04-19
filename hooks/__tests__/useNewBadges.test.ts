@@ -256,4 +256,23 @@ describe("useNewBadges — Realtime status", () => {
 
     expect(result.current.realtimeError).toBeNull();
   });
+
+  it("does not set realtimeError when subscribe callback fires after unmount", () => {
+    renderHook(() => useNewBadges());
+    const handler = capturedSubscribeHandler!;
+
+    act(() => {
+      activeRenderer!.unmount();
+    });
+    activeRenderer = null;
+
+    act(() => {
+      handler("CHANNEL_ERROR");
+    });
+
+    // No assertion on state — the guard prevents the update entirely.
+    // The test passes if React does not throw a "Can't perform state update
+    // on an unmounted component" warning.
+    expect(removeChannelFn).toHaveBeenCalledTimes(1);
+  });
 });

@@ -38,6 +38,8 @@ export function useNewBadges(): NewBadgesState {
           const badge = BADGE_BY_ID.get(badgeId);
           if (badge) {
             setNewBadge(badge);
+          } else {
+            console.warn(`useNewBadges: unknown badge_id "${badgeId}" — catalog may be stale`);
           }
         },
       )
