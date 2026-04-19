@@ -255,7 +255,7 @@ describe("confirmJoins", () => {
 
     expect(mock.from).toHaveBeenCalledWith("live_presence");
     const lpFrom = mock.from.mock.results.find(
-      (r: any) => typeof r.value.select === "function",
+      (r: { value?: { select?: unknown } }) => typeof r.value?.select === "function",
     )!.value;
     expect(lpFrom.select).toHaveBeenCalledWith("id");
     const eqResult = lpFrom.select.mock.results[0].value;
@@ -270,7 +270,7 @@ describe("confirmJoins", () => {
 
     expect(mock.from).toHaveBeenCalledWith("presence_joins");
     const pjFrom = mock.from.mock.results.find(
-      (r: any) => typeof r.value.update === "function",
+      (r: { value?: { update?: unknown } }) => typeof r.value?.update === "function",
     )!.value;
     expect(pjFrom.update).toHaveBeenCalledWith({ confirmed: true }, { count: "exact" });
 
