@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { clearPushToken } from "@/lib/notifications";
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -26,6 +27,10 @@ export function useAuth() {
   }, []);
 
   const signOut = async () => {
+    // Clear push token BEFORE sign-out — after sign-out the JWT is gone and
+    // RLS blocks the delete, leaving a stale row that would route this
+    // account's pushes to a prior user on shared devices. Non-fatal.
+    await clearPushToken();
     const { error } = await supabase.auth.signOut();
     if (error) console.error("Sign out failed:", error.message);
   };

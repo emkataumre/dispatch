@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database, Tables } from "@/types/supabase";
+import { sendPresencePush } from "./pushDelivery";
 
 // Use the generated type so it stays in sync with the DB schema automatically.
 export type PresenceJoin = Tables<"presence_joins">;
@@ -25,13 +26,9 @@ export async function joinPresence(
     throw new Error(error.message);
   }
 
-  try {
-    // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log("[Push stub] join notification queued");
-  } catch (pushErr) {
-    console.error("[Push stub] Failed to send join notification:", pushErr);
-    // Join succeeded — push failure is non-fatal
-  }
+  // Fire-and-forget — sendPresencePush swallows + logs its own failures.
+  // Join must not be blocked on push delivery.
+  void sendPresencePush("presence_join", data.id);
 
   return data as PresenceJoin;
 }
@@ -46,6 +43,14 @@ export async function cancelJoin(
   } = await supabase.auth.getUser();
   if (authError || !user) throw new Error("Not authenticated");
 
+  // Send the cancel push BEFORE deleting the row — the edge function looks up
+  // presence_joins by id to derive the recipient. Post-delete invocations 404.
+  // Must `await` (not `void`) so the edge fn's row lookup completes before the
+  // delete commits; otherwise both run concurrently and the lookup races the
+  // delete → silent push loss. `sendPresencePush` is non-fatal (returns null
+  // on error, never throws), so awaiting doesn't risk blocking the cancel.
+  await sendPresencePush("presence_cancel", joinId);
+
   const { count, error } = await supabase
     .from("presence_joins")
     .delete({ count: "exact" })
@@ -54,14 +59,6 @@ export async function cancelJoin(
 
   if (error) throw new Error(error.message);
   if ((count ?? 0) === 0) throw new Error("Join not found or already cancelled");
-
-  try {
-    // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log("[Push stub] cancel notification queued");
-  } catch (pushErr) {
-    console.error("[Push stub] Failed to send cancel notification:", pushErr);
-    // Cancel succeeded — push failure is non-fatal
-  }
 }
 
 // Confirms all of the current user's pending joins at a given POI.
@@ -91,23 +88,27 @@ export async function confirmJoins(
 
   const presenceIds = presences.map((p) => p.id);
 
-  // Step 2: confirm the joiner's pending joins for those presences
-  const { error: updateError, count } = await supabase
+  // Step 2: confirm the joiner's pending joins for those presences. `.select("id")`
+  // returns the updated rows so we can emit an arrival push per confirmed join —
+  // a joiner with multiple broadcasters at the same POI gets one push per broadcaster.
+  const { data: updatedRows, error: updateError } = await supabase
     .from("presence_joins")
-    .update({ confirmed: true }, { count: "exact" })
+    .update({ confirmed: true })
     .eq("joiner_user_id", user.id)
     .eq("confirmed", false)
-    .in("presence_id", presenceIds);
+    .in("presence_id", presenceIds)
+    .select("id");
 
   if (updateError) throw new Error(updateError.message);
-  if (count === 0)
+  const rows = updatedRows ?? [];
+  if (rows.length === 0) {
     console.log("[confirmJoins] No joins updated — joiner has no pending joins at poi:", poiId);
+    return;
+  }
 
-  try {
-    // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log("[Push stub] arrival notification queued for broadcasters at poi:", poiId);
-  } catch (pushErr) {
-    console.error("[Push stub] Failed to queue arrival notification:", pushErr);
-    // Confirmation succeeded — push failure is non-fatal
+  // Fire-and-forget — sendPresencePush swallows + logs its own failures.
+  // Confirmation must not be blocked on push delivery.
+  for (const row of rows) {
+    void sendPresencePush("presence_arrived", row.id);
   }
 }
