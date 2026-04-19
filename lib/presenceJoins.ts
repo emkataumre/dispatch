@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database, Tables } from "@/types/supabase";
+import { sendPresencePush } from "./pushDelivery";
 
 // Use the generated type so it stays in sync with the DB schema automatically.
 export type PresenceJoin = Tables<"presence_joins">;
@@ -25,13 +26,9 @@ export async function joinPresence(
     throw new Error(error.message);
   }
 
-  try {
-    // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log("[Push stub] join notification queued");
-  } catch (pushErr) {
-    console.error("[Push stub] Failed to send join notification:", pushErr);
-    // Join succeeded — push failure is non-fatal
-  }
+  // Fire-and-forget — sendPresencePush swallows + logs its own failures.
+  // Join must not be blocked on push delivery.
+  void sendPresencePush("presence_join", data.id);
 
   return data as PresenceJoin;
 }
@@ -46,6 +43,11 @@ export async function cancelJoin(
   } = await supabase.auth.getUser();
   if (authError || !user) throw new Error("Not authenticated");
 
+  // Send the cancel push BEFORE deleting the row — the edge function looks up
+  // presence_joins by id to derive the recipient. Post-delete invocations 404.
+  // Fire-and-forget; non-fatal.
+  void sendPresencePush("presence_cancel", joinId);
+
   const { count, error } = await supabase
     .from("presence_joins")
     .delete({ count: "exact" })
@@ -54,14 +56,6 @@ export async function cancelJoin(
 
   if (error) throw new Error(error.message);
   if ((count ?? 0) === 0) throw new Error("Join not found or already cancelled");
-
-  try {
-    // Push notification stub — replace with Expo Push when infra is built in Phase 7
-    console.log("[Push stub] cancel notification queued");
-  } catch (pushErr) {
-    console.error("[Push stub] Failed to send cancel notification:", pushErr);
-    // Cancel succeeded — push failure is non-fatal
-  }
 }
 
 // Confirms all of the current user's pending joins at a given POI.

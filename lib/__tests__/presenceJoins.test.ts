@@ -1,6 +1,17 @@
+jest.mock("../pushDelivery", () => ({
+  sendPresencePush: jest.fn().mockResolvedValue({ sent: 1, failed: 0, missing_tokens: 0 }),
+}));
+
 import { joinPresence, cancelJoin, confirmJoins } from "../presenceJoins";
+import { sendPresencePush } from "../pushDelivery";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase";
+
+const mockSendPresencePush = sendPresencePush as jest.Mock;
+
+beforeEach(() => {
+  mockSendPresencePush.mockClear();
+});
 
 const MOCK_USER_ID = "user-123";
 const MOCK_PRESENCE_ID = "presence-456";
@@ -152,12 +163,18 @@ describe("joinPresence", () => {
     );
   });
 
-  it("logs push notification stub", async () => {
-    const spy = jest.spyOn(console, "log").mockImplementation(() => {});
+  it("invokes sendPresencePush with the inserted join id", async () => {
     const mock = makeJoinMock();
     await joinPresence(asClient(mock), { presenceId: MOCK_PRESENCE_ID });
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining("Push stub"));
-    spy.mockRestore();
+    expect(mockSendPresencePush).toHaveBeenCalledWith("presence_join", MOCK_JOIN_ID);
+  });
+
+  it("does not send push when insert fails", async () => {
+    const mock = makeJoinMock({
+      insertResult: { data: null, error: { message: "insert failed" } },
+    });
+    await expect(joinPresence(asClient(mock), { presenceId: MOCK_PRESENCE_ID })).rejects.toThrow();
+    expect(mockSendPresencePush).not.toHaveBeenCalled();
   });
 });
 
@@ -212,12 +229,33 @@ describe("cancelJoin", () => {
     );
   });
 
-  it("logs push notification stub", async () => {
-    const spy = jest.spyOn(console, "log").mockImplementation(() => {});
+  it("invokes sendPresencePush with the joinId", async () => {
     const mock = makeCancelMock();
     await cancelJoin(asClient(mock), { joinId: MOCK_JOIN_ID });
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining("Push stub"));
-    spy.mockRestore();
+    expect(mockSendPresencePush).toHaveBeenCalledWith("presence_cancel", MOCK_JOIN_ID);
+  });
+
+  it("invokes sendPresencePush BEFORE the delete (edge fn needs row)", async () => {
+    const mock = makeCancelMock();
+    const callOrder: string[] = [];
+    mockSendPresencePush.mockImplementationOnce(async () => {
+      callOrder.push("push");
+      return { sent: 1, failed: 0, missing_tokens: 0 };
+    });
+    // Capture the delete call timing via the mock's `delete` fn.
+    const origFrom = mock.from;
+    mock.from = jest.fn().mockImplementation((table: string) => {
+      const result = origFrom(table);
+      const origDelete = result.delete;
+      result.delete = jest.fn().mockImplementation((...args: unknown[]) => {
+        callOrder.push("delete");
+        return origDelete(...args);
+      });
+      return result;
+    });
+
+    await cancelJoin(asClient(mock), { joinId: MOCK_JOIN_ID });
+    expect(callOrder).toEqual(["push", "delete"]);
   });
 });
 
