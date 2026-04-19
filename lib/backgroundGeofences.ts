@@ -79,6 +79,10 @@ async function setCooldown(poiId: string): Promise<void> {
 // Geofence registration
 // ---------------------------------------------------------------------------
 
+// Intended for call sites where expo-task-manager is already initialized (i.e.
+// not at cold-start). Direct callers (e.g. the SLC background task) must not
+// call this at a point where TaskManagerInternalImpl's SharedPreferences may be
+// null — use registerGeofences instead, which primes the singleton first.
 export async function registerGeofenceRegions(pois: PoiSlim[]): Promise<void> {
   const regions: Location.LocationRegion[] = pois.map((p) => ({
     identifier: `${p.id}::${p.name}`,
@@ -95,6 +99,25 @@ export async function registerGeofences(
   pois: PoiSlim[],
   currentLocation?: { latitude: number; longitude: number },
 ): Promise<void> {
+  // Prime expo-task-manager's native singleton before any Location.* call. On
+  // Android, startGeofencingAsync reads TaskManagerInternalImpl's persisted-
+  // task SharedPreferences; if the TaskService context hasn't initialized yet
+  // (race against concurrent expo-notifications/FCM init at app cold-start),
+  // that SharedPreferences reference is null and getAll() throws NPE. Calling
+  // isTaskRegisteredAsync first forces the singleton to construct.
+  try {
+    await TaskManager.isTaskRegisteredAsync(GEOFENCE_TASK);
+  } catch (err) {
+    // isTaskRegisteredAsync returns false (not throws) when TaskManager is
+    // uninitialized — reaching here is unexpected. Log prominently so it
+    // surfaces in crash reporting (Crashlytics, Phase 7) and proceed; the
+    // prime has failed and the Android NPE may still occur.
+    console.error(
+      "[registerGeofences] TaskManager prime threw unexpectedly — Android NPE may follow:",
+      err,
+    );
+  }
+
   // Stop any stale geofence and location-update tasks from a previous session.
   // Without stopping the geofence task first, startGeofencingAsync may deliver
   // queued/pending Enter events from the old registration alongside the new one,
